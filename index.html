@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Swim Tracker</title>
+<style>
+  :root {
+    --navy: #255471; --teal: #2E6E88; --orange: #F37238;
+    --grey: #7F7F7F; --light: #F2F2F2;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--navy); color: white;
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+    overflow: hidden; touch-action: manipulation; }
+  #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+  /* ── Setup ── */
+  #setup { flex: 1; display: flex; flex-direction: column; padding: 20px; gap: 14px;
+    overflow-y: auto; padding-top: env(safe-area-inset-top, 20px); }
+  h1 { margin: 8px 0 0 0; font-size: 22px; border-bottom: 2px solid var(--orange); padding-bottom: 8px; }
+  .subtle { margin: 0; font-size: 14px; opacity: 0.8; line-height: 1.4; }
+  .row { display: flex; flex-direction: column; gap: 6px; }
+  .row label { font-size: 13px; color: var(--light); text-transform: uppercase; letter-spacing: 0.5px; }
+  .row input { padding: 14px; border-radius: 8px; border: none; background: white; color: var(--navy);
+    font-size: 17px; font-weight: 500; -webkit-user-select: text; user-select: text; }
+  .pill-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { flex: 1; min-width: 70px; padding: 12px 8px; background: var(--teal); color: white;
+    border-radius: 999px; text-align: center; font-size: 15px; border: 2px solid transparent; cursor: pointer; }
+  .pill.active { background: var(--orange); border-color: white; }
+
+  #start-btn { margin: 4px 0 0 0; padding: 26px; background: var(--orange); color: white; border: none;
+    border-radius: 16px; font-size: 24px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; }
+  #start-btn:disabled { background: var(--grey); }
+
+  #model-status { font-size: 13px; text-align: center; padding: 6px; border-radius: 8px;
+    background: rgba(255,255,255,0.1); opacity: 0.85; }
+  #model-status.ready { background: rgba(74,222,128,0.2); color: #4ade80; }
+  #model-status.error { background: rgba(248,113,113,0.2); color: #f87171; }
+
+  .err { background: #f87171; color: white; padding: 12px; border-radius: 8px; font-size: 14px; }
+
+  /* ── Recording ── */
+  #recording { flex: 1; display: none; flex-direction: column; position: relative; background: black; }
+  #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+  /* Top HUD bar */
+  #hud-top { position: absolute; top: 0; left: 0; right: 0;
+    padding: 14px 16px; padding-top: calc(14px + env(safe-area-inset-top, 0));
+    background: linear-gradient(180deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0) 100%);
+    display: flex; justify-content: space-between; align-items: flex-start; }
+  #timer-block { display: flex; flex-direction: column; gap: 2px; }
+  #rec-status { display: flex; align-items: center; gap: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; }
+  #rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #f87171; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+  #timer { font-size: 48px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  #target-info { text-align: right; font-size: 13px; opacity: 0.85; line-height: 1.5; }
+  #target-info .big { font-size: 19px; font-weight: 600; }
+
+  /* Centre stroke counter */
+  #stroke-center {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    text-align: center; pointer-events: none;
+    background: rgba(0,0,0,0.48); border-radius: 24px; padding: 22px 36px;
+    min-width: 180px;
+  }
+  #live-count {
+    font-size: 96px; font-weight: 800; line-height: 1;
+    font-variant-numeric: tabular-nums; color: white;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+  #live-label {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 2px;
+    opacity: 0.7; margin: 2px 0 6px;
+  }
+  #live-rate {
+    font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums;
+    color: var(--orange);
+  }
+  #pose-indicator {
+    margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 6px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.75;
+  }
+  #pose-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--grey); }
+  #pose-dot.on { background: #4ade80; }
+  #pose-dot.off { background: var(--grey); }
+  #pose-dot.na { background: var(--grey); opacity: 0.35; }
+
+  #stop-btn { position: absolute; bottom: 0; left: 0; right: 0; padding: 26px;
+    padding-bottom: calc(26px + env(safe-area-inset-bottom, 0));
+    background: var(--orange); color: white; border: none; font-size: 21px;
+    font-weight: 700; text-transform: uppercase; cursor: pointer; z-index: 10; }
+
+  /* ── Swimmer selection overlay ── */
+  #select-overlay {
+    position: absolute; inset: 0; z-index: 30;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    padding-bottom: 100px;
+  }
+  #lane-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; /* taps pass through to video */
+  }
+  #select-msg {
+    position: relative; z-index: 31; text-align: center;
+    background: rgba(0,0,0,0.72); border-radius: 16px; padding: 20px 28px;
+    pointer-events: none;
+  }
+  #select-msg p { margin: 0 0 6px; font-size: 20px; font-weight: 700; }
+  #select-msg small { font-size: 13px; opacity: 0.75; }
+  #select-confirm {
+    position: relative; z-index: 31; margin-top: 16px;
+    padding: 16px 36px; background: var(--teal); color: white;
+    border: none; border-radius: 999px; font-size: 17px; font-weight: 700;
+    cursor: pointer; display: none;
+  }
+  #select-retap {
+    position: relative; z-index: 31; margin-top: 10px;
+    padding: 10px 24px; background: rgba(255,255,255,0.15); color: white;
+    border: none; border-radius: 999px; font-size: 14px; cursor: pointer; display: none;
+  }
+  #lane-indicator {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    background: rgba(46,110,136,0.85); color: white; font-size: 12px; font-weight: 600;
+    padding: 6px 16px; border-radius: 999px; z-index: 31; display: none;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+
+  /* ── Saved ── */
+  #saved { flex: 1; display: none; flex-direction: column; padding: 20px; gap: 12px;
+    overflow-y: auto; padding-top: env(safe-area-inset-top, 20px); }
+  .info-card { background: white; color: var(--navy); padding: 14px 16px; border-radius: 12px; }
+  .info-card .k { font-size: 11px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+  .info-card .v { font-size: 17px; font-weight: 600; word-break: break-word; }
+  .info-card.hero .v { font-size: 42px; font-variant-numeric: tabular-nums; }
+  .info-card.big .v { font-size: 26px; font-variant-numeric: tabular-nums; }
+  .cards-row { display: flex; gap: 10px; }
+  .cards-row .info-card { flex: 1; }
+
+  #playback { width: 100%; border-radius: 12px; background: black; max-height: 220px; object-fit: contain; }
+
+  /* Endless window chart */
+  #endless-section { background: white; color: var(--navy); padding: 14px 16px; border-radius: 12px; display: none; }
+  #endless-section .k { font-size: 11px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .win-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .win-lbl { font-size: 11px; color: var(--grey); width: 28px; text-align: right; flex-shrink: 0; }
+  .win-bar-wrap { flex: 1; background: var(--light); border-radius: 4px; height: 18px; overflow: hidden; }
+  .win-bar { height: 100%; background: var(--teal); border-radius: 4px; transition: width 0.4s; }
+  .win-rate { font-size: 12px; font-weight: 600; color: var(--navy); width: 40px; flex-shrink: 0; }
+
+  .button-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .button-row button { flex: 1; min-width: 130px; padding: 17px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  #download-btn { background: var(--orange); color: white; }
+  #share-btn { background: var(--teal); color: white; }
+  #again-btn { background: white; color: var(--navy); }
+
+  /* ── History ── */
+  #history { flex: 1; display: none; flex-direction: column;
+    padding: 0; overflow: hidden; }
+  #history-header { padding: 16px 20px; padding-top: calc(16px + env(safe-area-inset-top, 0));
+    background: var(--navy); border-bottom: 2px solid var(--orange);
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  #history-header h2 { margin: 0; font-size: 20px; flex: 1; }
+  #history-back { background: none; border: none; color: white; font-size: 15px;
+    padding: 8px 0; cursor: pointer; opacity: 0.8; }
+  #history-export { background: var(--teal); border: none; color: white; font-size: 13px;
+    padding: 8px 14px; border-radius: 999px; cursor: pointer; font-weight: 600; }
+  #history-list { flex: 1; overflow-y: auto; padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 10px; }
+  #history-empty { text-align: center; padding: 60px 20px; opacity: 0.5; font-size: 15px; }
+
+  .sess-card { background: rgba(255,255,255,0.08); border-radius: 14px;
+    overflow: hidden; border: 1px solid rgba(255,255,255,0.10); }
+  .sess-head { padding: 14px 16px; display: flex; align-items: center;
+    gap: 10px; cursor: pointer; }
+  .sess-icon { font-size: 22px; flex-shrink: 0; }
+  .sess-meta { flex: 1; min-width: 0; }
+  .sess-title { font-size: 15px; font-weight: 700; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .sess-sub { font-size: 12px; opacity: 0.65; margin-top: 2px; }
+  .sess-stats { text-align: right; flex-shrink: 0; }
+  .sess-strokes { font-size: 26px; font-weight: 800; line-height: 1;
+    font-variant-numeric: tabular-nums; color: var(--orange); }
+  .sess-dur { font-size: 11px; opacity: 0.7; margin-top: 1px; }
+  .sess-chevron { font-size: 14px; opacity: 0.5; margin-left: 4px; transition: transform 0.2s; }
+  .sess-card.open .sess-chevron { transform: rotate(90deg); }
+
+  .sess-body { display: none; border-top: 1px solid rgba(255,255,255,0.08); }
+  .sess-card.open .sess-body { display: block; }
+
+  .sess-table { width: 100%; border-collapse: collapse;
+    font-size: 12px; font-variant-numeric: tabular-nums; }
+  .sess-table th { padding: 6px 10px; text-align: center; background: rgba(0,0,0,0.2);
+    color: rgba(255,255,255,0.6); font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.4px; }
+  .sess-table td { padding: 7px 10px; text-align: center;
+    border-top: 1px solid rgba(255,255,255,0.05); }
+  .sess-table tr:nth-child(odd) td { background: rgba(255,255,255,0.03); }
+
+  .win-section { padding: 10px 14px; }
+  .win-section .k { font-size: 11px; color: rgba(255,255,255,0.5);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .win-row2 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .win-lbl2 { font-size: 11px; opacity: 0.55; width: 30px; text-align: right; flex-shrink: 0; }
+  .win-bar-wrap2 { flex: 1; background: rgba(255,255,255,0.1); border-radius: 3px; height: 14px; overflow: hidden; }
+  .win-bar2 { height: 100%; background: var(--teal); border-radius: 3px; }
+  .win-rate2 { font-size: 11px; opacity: 0.7; width: 38px; flex-shrink: 0; }
+
+  .sess-actions { display: flex; gap: 8px; padding: 10px 14px; }
+  .sess-del { flex: 1; padding: 10px; background: rgba(248,113,113,0.15);
+    color: #f87171; border: 1px solid rgba(248,113,113,0.3);
+    border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+  /* History link on setup */
+  #history-link { background: none; border: none; color: rgba(255,255,255,0.55);
+    font-size: 14px; text-align: center; padding: 4px; cursor: pointer;
+    text-decoration: underline; align-self: center; }
+
+  /* Skip link on selection overlay */
+  #select-skip { position: relative; z-index: 31; margin-top: 8px;
+    padding: 8px 20px; background: none; color: rgba(255,255,255,0.55);
+    border: none; font-size: 13px; cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══ SETUP ══ -->
+  <div id="setup">
+    <h1>Swim Tracker</h1>
+    <p class="subtle">Live stroke counting + video recording. AI runs on-device — no internet needed once loaded.</p>
+
+    <div class="row">
+      <label>Swimmer</label>
+      <input id="swimmer-name" type="text" value="Marc">
+    </div>
+
+    <div class="row">
+      <label>Stroke</label>
+      <div class="pill-group" id="stroke-group">
+        <div class="pill active" data-value="free">Free</div>
+        <div class="pill" data-value="back">Back</div>
+        <div class="pill" data-value="breast">Breast</div>
+        <div class="pill" data-value="fly">Fly</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Pool / Mode</label>
+      <div class="pill-group" id="mode-group">
+        <div class="pill active" data-value="endless">Endless / Timed</div>
+        <div class="pill" data-value="lap_25">25m lap</div>
+        <div class="pill" data-value="lap_50">50m lap</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Target duration</label>
+      <div class="pill-group" id="duration-group">
+        <div class="pill" data-value="30">30s</div>
+        <div class="pill" data-value="60">1 min</div>
+        <div class="pill active" data-value="90">1.5 min</div>
+        <div class="pill" data-value="120">2 min</div>
+        <div class="pill" data-value="180">3 min</div>
+        <div class="pill" data-value="0">No limit</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Camera</label>
+      <div class="pill-group" id="camera-group">
+        <div class="pill active" data-value="environment">Back camera</div>
+        <div class="pill" data-value="user">Front camera</div>
+      </div>
+    </div>
+
+    <button id="start-btn">Start recording</button>
+    <div id="model-status">Loading AI model…</div>
+    <div id="setup-error"></div>
+    <button id="history-link">View session history</button>
+  </div>
+
+  <!-- ══ RECORDING ══ -->
+  <div id="recording">
+    <video id="video" autoplay muted playsinline></video>
+
+    <!-- Swimmer selection overlay (shown until swimmer is tapped) -->
+    <div id="select-overlay">
+      <canvas id="lane-canvas"></canvas>
+      <div id="lane-indicator">Lane locked</div>
+      <div id="select-msg">
+        <p>Tap your swimmer</p>
+        <small>A lane band locks on — only that swimmer is tracked</small>
+      </div>
+      <button id="select-confirm">Start counting</button>
+      <button id="select-retap">Tap again to adjust</button>
+      <button id="select-skip">Skip — single swimmer</button>
+    </div>
+
+    <div id="hud-top">
+      <div id="timer-block">
+        <div id="rec-status"><div id="rec-dot"></div><span>REC</span></div>
+        <div id="timer">00:00</div>
+      </div>
+      <div id="target-info">
+        <div id="target-stroke">free · endless</div>
+        <div class="big" id="target-time">/ 1:30</div>
+      </div>
+    </div>
+
+    <div id="stroke-center">
+      <div id="live-count">0</div>
+      <div id="live-label">Strokes</div>
+      <div id="live-rate">—</div>
+      <div id="pose-indicator">
+        <div id="pose-dot" class="na"></div>
+        <span id="pose-label">AI loading</span>
+      </div>
+    </div>
+
+    <button id="stop-btn">Stop &amp; Save</button>
+  </div>
+
+  <!-- ══ SAVED ══ -->
+  <div id="saved">
+    <h1 id="saved-title">Session saved</h1>
+    <video id="playback" controls playsinline></video>
+
+    <!-- Stroke hero cards -->
+    <div class="cards-row">
+      <div class="info-card hero">
+        <div class="k">Strokes</div>
+        <div class="v" id="info-strokes">—</div>
+      </div>
+      <div class="info-card big">
+        <div class="k">Avg rate</div>
+        <div class="v" id="info-rate">—</div>
+      </div>
+    </div>
+
+    <!-- Endless window chart (shown only for endless mode) -->
+    <div id="endless-section">
+      <div class="k">Stroke rate per 30s window</div>
+      <div id="endless-chart"></div>
+      <div style="margin-top:8px;font-size:12px;color:var(--grey)" id="decay-label"></div>
+    </div>
+
+    <div class="info-card big">
+      <div class="k">Filename</div>
+      <div class="v" id="info-filename">—</div>
+    </div>
+    <div class="cards-row">
+      <div class="info-card">
+        <div class="k">Duration</div>
+        <div class="v" id="info-duration">—</div>
+      </div>
+      <div class="info-card">
+        <div class="k">File size</div>
+        <div class="v" id="info-size">—</div>
+      </div>
+    </div>
+
+    <div class="button-row">
+      <button id="download-btn">Download</button>
+      <button id="share-btn" style="display:none">Share</button>
+      <button id="again-btn">Record again</button>
+    </div>
+
+    <p class="subtle">Download to save to Files, then transfer to the Spark for full pose analysis and database logging.</p>
+  </div>
+
+  <!-- ══ HISTORY ══ -->
+  <div id="history">
+    <div id="history-header">
+      <button id="history-back">← Back</button>
+      <h2>Session History</h2>
+      <button id="history-export">Export JSON</button>
+    </div>
+    <div id="history-list">
+      <div id="history-empty">No sessions saved yet.<br>Record a session to see it here.</div>
+    </div>
+  </div>
+
+</div>
+<script>
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const setupDiv = $('setup'), recordingDiv = $('recording'), savedDiv = $('saved'), historyDiv = $('history');
+const video = $('video');
+
+function showScreen(el) {
+  [setupDiv, recordingDiv, savedDiv, historyDiv].forEach(d => d.style.display = 'none');
+  el.style.display = 'flex';
+}
+
+function fmtTime(s) {
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+function pickMimeType() {
+  for (const c of ['video/mp4;codecs=h264','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']) {
+    if (window.MediaRecorder?.isTypeSupported?.(c)) return c;
+  }
+  return '';
+}
+
+// ─────────────────────────────────────────────
+// App state
+// ─────────────────────────────────────────────
+const state = {
+  swimmer: 'Marc', stroke: 'free', mode: 'endless',
+  targetDuration: 90, cameraFacing: 'environment',
+  startedAt: null, startTime: 0,
+  videoStream: null, mediaRecorder: null,
+  chunks: [], autoStopTimer: null,
+  recordedBlob: null, recordedUrl: null,
+  isRecording: false,
+  // Swimmer tracking
+  laneBand: null,    // {xMin, xMax} normalised, null = full width
+  tracker: null,     // SwimmerTracker instance
+  selecting: true,   // true until swimmer is tapped
+};
+
+// Pill selectors
+function setupPills(groupId, key, parser = v => v) {
+  $(groupId).addEventListener('click', e => {
+    const t = e.target.closest('.pill'); if (!t) return;
+    [...$(groupId).children].forEach(p => p.classList.remove('active'));
+    t.classList.add('active');
+    state[key] = parser(t.dataset.value);
+  });
+}
+setupPills('stroke-group', 'stroke');
+setupPills('mode-group',   'mode');
+setupPills('duration-group', 'targetDuration', parseInt);
+setupPills('camera-group', 'cameraFacing');
+$('swimmer-name').addEventListener('input', e => {
+  state.swimmer = (e.target.value || 'Swimmer').trim();
+});
+
+// ─────────────────────────────────────────────
+// MediaPipe pose loading
+// ─────────────────────────────────────────────
+const MP_VERSION = '0.10.14';
+const WASM_URL   = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/wasm`;
+const MODEL_URL  = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task';
+
+let poseLandmarker = null;
+let poseAvailable  = false;
+
+(async () => {
+  try {
+    const { PoseLandmarker, FilesetResolver } = await import(
+      `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/vision_bundle.mjs`
+    );
+    const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+    poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: MODEL_URL,
+        delegate: 'GPU',
+      },
+      runningMode: 'VIDEO',
+      numPoses: 1,
+      minPoseDetectionConfidence: 0.4,
+      minPosePresenceConfidence: 0.4,
+      minTrackingConfidence: 0.4,
+    });
+    poseAvailable = true;
+    $('model-status').textContent = '● AI model ready';
+    $('model-status').className = 'ready';
+    $('pose-label').textContent = 'pose';
+  } catch (err) {
+    $('model-status').textContent = 'AI unavailable — recording only';
+    $('model-status').className = 'error';
+    $('pose-label').textContent = 'no AI';
+    console.warn('Pose model failed:', err);
+  }
+})();
+
+// ─────────────────────────────────────────────
+// Stroke counting  (EMA + hysteresis)
+// ─────────────────────────────────────────────
+// Tuned 2026-05-23 against 4 YouTube Shorts (overhead race camera):
+//   back35=35 PERFECT, free11=11 PERFECT, free12=13 PERFECT, breast14=14 PERFECT (Python offline).
+// Mapped to EMA+hysteresis: stroke-specific thresholds mirror stroke-specific prominence offline.
+//   Free/back: larger wrist amplitude → wider hysteresis, prom=0.035 equivalent.
+//   Breast/fly: smaller overhead amplitude → narrower hysteresis, prom=0.020 equivalent.
+const SMOOTH_ALPHA        = 0.25;   // ≈ sw=9 SG filter at 30fps (tighter than sw=15)
+const FREE_BACK_HIGH      = 0.57;   // free/back: wide hysteresis (large amplitude peaks)
+const FREE_BACK_LOW       = 0.43;
+const FREE_BACK_MIN_MS    = 400;    // = dist 0.40 × 30fps at 1000ms/s
+const BREAST_FLY_HIGH     = 0.54;   // breast/fly: narrow hysteresis (smaller overhead amplitude)
+const BREAST_FLY_LOW      = 0.46;
+const BREAST_FLY_MIN_MS   = 400;
+const WINDOW_S            = 30;
+const POSE_INTERVAL_MS    = 1000 / 30;
+
+// ─────────────────────────────────────────────
+// Swimmer tracker — lane band + Kalman position predictor
+// ─────────────────────────────────────────────
+// Width of the lane band (fraction of normalised frame width).
+// 0.13 ≈ one lane in a typical race pool shot from 5-10m away.
+const LANE_HALF_W = 0.13;
+
+class SwimmerTracker {
+  constructor(x, y) {
+    this.x = x; this.y = y;
+    this.vx = 0; this.vy = 0;
+    this.lost = 0;  // frames since last good detection
+  }
+  predict() {
+    return { x: this.x + this.vx, y: this.y + this.vy };
+  }
+  update(mx, my) {
+    // Blend measurement (65%) with Kalman prediction (35%)
+    const p = this.predict();
+    const nx = 0.65 * mx + 0.35 * p.x;
+    const ny = 0.65 * my + 0.35 * p.y;
+    // Update velocity
+    this.vx = 0.25 * (nx - this.x) + 0.75 * this.vx;
+    this.vy = 0.25 * (ny - this.y) + 0.75 * this.vy;
+    this.x = nx; this.y = ny;
+    this.lost = 0;
+  }
+  miss() {
+    const p = this.predict();
+    this.x = p.x; this.y = p.y;
+    this.lost++;
+  }
+  dist(x, y) { return Math.hypot(this.x - x, this.y - y); }
+}
+
+// Pick the best pose from multi-pose results using lane band + Kalman proximity
+function selectBestPose(allPoses) {
+  if (!allPoses?.length) return null;
+
+  // Filter to lane band (nose x = landmark 0)
+  let candidates = allPoses;
+  if (state.laneBand) {
+    const { xMin, xMax } = state.laneBand;
+    const inLane = allPoses.filter(lm => lm[0].x >= xMin && lm[0].x <= xMax);
+    if (inLane.length) candidates = inLane;
+  }
+
+  // First frame after tap: initialise tracker from closest to lane centre
+  if (!state.tracker && state.laneBand) {
+    const cx = (state.laneBand.xMin + state.laneBand.xMax) / 2;
+    const best = candidates.reduce((a, b) =>
+      Math.abs(a[0].x - cx) < Math.abs(b[0].x - cx) ? a : b);
+    state.tracker = new SwimmerTracker(best[0].x, best[0].y);
+    return best;
+  }
+  if (!state.tracker) {
+    state.tracker = new SwimmerTracker(candidates[0][0].x, candidates[0][0].y);
+    return candidates[0];
+  }
+
+  // Subsequent frames: pick candidate closest to predicted position
+  const pred = state.tracker.predict();
+  let best = null, bestD = Infinity;
+  for (const lm of candidates) {
+    const d = Math.hypot(lm[0].x - pred.x, lm[0].y - pred.y);
+    if (d < bestD) { bestD = d; best = lm; }
+  }
+
+  if (best && bestD < 0.30) {
+    state.tracker.update(best[0].x, best[0].y);
+    return best;
+  }
+  state.tracker.miss();
+  return null;
+}
+
+// Draw the teal lane band on the canvas overlay
+function drawLaneBand(tapXNorm) {
+  const canvas = $('lane-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width  = canvas.offsetWidth  || video.offsetWidth;
+  canvas.height = canvas.offsetHeight || video.offsetHeight;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const cx = tapXNorm * canvas.width;
+  const hw = LANE_HALF_W * canvas.width;
+
+  // Shaded lane band
+  ctx.fillStyle = 'rgba(46,110,136,0.30)';
+  ctx.fillRect(cx - hw, 0, hw * 2, canvas.height);
+  // Solid borders
+  ctx.strokeStyle = 'rgba(46,110,136,0.80)';
+  ctx.lineWidth = 2; ctx.setLineDash([]);
+  ctx.strokeRect(cx - hw, 0, hw * 2, canvas.height);
+  // Dashed centre line
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 1.5; ctx.setLineDash([10, 8]);
+  ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height); ctx.stroke();
+}
+
+let sc = {
+  totalStrokes: 0,
+  strokeTimes: [],           // performance.now() of each stroke
+  lapTimes: [0],             // elapsed-seconds of each wall touch (starts with 0)
+  poseGapStart: null,        // for real-time flip-turn detection
+  lastPoseElapsed: 0,
+  ema: { l: null, r: null },
+  hyst: {
+    l:   { phase: 'low', last: 0 },
+    r:   { phase: 'low', last: 0 },
+    sym: { phase: 'low', last: 0 },
+  },
+  windows: [],               // completed 30s buckets
+  winStart: 0,               // elapsed seconds at start of current window
+  winStrokes: 0,
+  poseOn: false,
+  lastPoseMs: 0,
+  animId: null,
+};
+
+function resetSC() {
+  sc.totalStrokes = 0; sc.strokeTimes = []; sc.lapTimes = [0];
+  sc.poseGapStart = null; sc.lastPoseElapsed = 0;
+  sc.ema = { l: null, r: null };
+  sc.hyst = {
+    l:   { phase: 'low', last: 0 },
+    r:   { phase: 'low', last: 0 },
+    sym: { phase: 'low', last: 0 },
+  };
+  sc.windows = []; sc.winStart = 0; sc.winStrokes = 0;
+  sc.poseOn = false; sc.lastPoseMs = 0; sc.animId = null;
+  // Reset tracking state
+  state.laneBand = null; state.tracker = null; state.selecting = true;
+}
+
+function ema(prev, v) { return prev === null ? v : SMOOTH_ALPHA * v + (1 - SMOOTH_ALPHA) * prev; }
+
+function hysteresisCheck(h, v, now, hi, lo, minMs) {
+  if (h.phase === 'low' && v > hi) { h.phase = 'high'; }
+  else if (h.phase === 'high' && v < lo) {
+    h.phase = 'low';
+    if (now - h.last >= minMs) { h.last = now; return true; }
+  }
+  return false;
+}
+
+function processLandmarks(lm, nowMs) {
+  const lh = 1 - lm[15].y;   // left wrist height
+  const rh = 1 - lm[16].y;   // right wrist height
+  sc.ema.l = ema(sc.ema.l, lh);
+  sc.ema.r = ema(sc.ema.r, rh);
+
+  let stroked = false;
+  if (state.stroke === 'free' || state.stroke === 'back') {
+    if (hysteresisCheck(sc.hyst.l,   sc.ema.l, nowMs, FREE_BACK_HIGH, FREE_BACK_LOW, FREE_BACK_MIN_MS))
+      { sc.totalStrokes++; sc.strokeTimes.push(nowMs); sc.winStrokes++; stroked = true; }
+    if (hysteresisCheck(sc.hyst.r,   sc.ema.r, nowMs, FREE_BACK_HIGH, FREE_BACK_LOW, FREE_BACK_MIN_MS))
+      { sc.totalStrokes++; sc.strokeTimes.push(nowMs); sc.winStrokes++; stroked = true; }
+  } else {
+    const sym = (sc.ema.l + sc.ema.r) / 2;
+    if (hysteresisCheck(sc.hyst.sym, sym,       nowMs, BREAST_FLY_HIGH, BREAST_FLY_LOW, BREAST_FLY_MIN_MS))
+      { sc.totalStrokes++; sc.strokeTimes.push(nowMs); sc.winStrokes++; stroked = true; }
+  }
+  return stroked;
+}
+
+function rollingRate(nowMs) {
+  const cutoffMs = nowMs - 30000;
+  const recent = sc.strokeTimes.filter(t => t >= cutoffMs);
+  const windowMs = Math.min(nowMs - state.startTime, 30000);
+  return windowMs > 2000 ? Math.round((recent.length / windowMs) * 60000) : 0;
+}
+
+// ─────────────────────────────────────────────
+// Pose loop (runs every animation frame while recording)
+// ─────────────────────────────────────────────
+function poseLoop() {
+  if (!state.isRecording) return;
+  const nowMs   = performance.now();
+  const elapsed = (nowMs - state.startTime) / 1000;
+
+  // Flush completed 30-second window
+  if (elapsed - sc.winStart >= WINDOW_S) {
+    const dur = elapsed - sc.winStart;
+    sc.windows.push({ start: sc.winStart, end: elapsed,
+      strokes: sc.winStrokes, rate: dur > 0 ? (sc.winStrokes / dur) * 60 : 0 });
+    sc.winStart   = elapsed;
+    sc.winStrokes = 0;
+  }
+
+  // Run pose (rate-limited to 30 fps)
+  if (poseLandmarker && nowMs - sc.lastPoseMs >= POSE_INTERVAL_MS && video.readyState >= 2) {
+    sc.lastPoseMs = nowMs;
+    try {
+      const res = poseLandmarker.detectForVideo(video, nowMs);
+      const lm  = selectBestPose(res.landmarks || []);
+      if (lm) {
+        sc.poseOn = true;
+        // Flip-turn detection: pose gap ended
+        if (sc.poseGapStart !== null) {
+          const gapDur = elapsed - sc.poseGapStart;
+          const minLapS = state.mode === 'lap_50' ? 10 : 5; // min gap between wall touches
+          if (gapDur >= 0.4 && gapDur <= 5.0) {
+            const touchT = sc.poseGapStart + gapDur / 2;
+            const lastLap = sc.lapTimes[sc.lapTimes.length - 1];
+            if (touchT - lastLap >= minLapS) {
+              sc.lapTimes.push(parseFloat(touchT.toFixed(2)));
+            }
+          }
+          sc.poseGapStart = null;
+        }
+        sc.lastPoseElapsed = elapsed;
+        if (!state.selecting) processLandmarks(lm, nowMs);
+      } else {
+        if (state.tracker) state.tracker.miss();
+        sc.poseOn = false;
+        // Start tracking a pose gap (potential flip turn)
+        if (sc.poseGapStart === null && elapsed > 1) sc.poseGapStart = elapsed;
+      }
+    } catch { sc.poseOn = false; }
+  }
+
+  // Update HUD
+  $('live-count').textContent = sc.totalStrokes;
+  const rate = rollingRate(nowMs);
+  $('live-rate').textContent  = rate > 0 ? `${rate}/min` : '—';
+  $('timer').textContent       = fmtTime(elapsed);
+
+  if (poseAvailable) {
+    $('pose-dot').className   = sc.poseOn ? 'on' : 'off';
+    $('pose-label').textContent = sc.poseOn ? 'pose on' : 'no pose';
+  }
+
+  sc.animId = requestAnimationFrame(poseLoop);
+}
+
+// ─────────────────────────────────────────────
+// Recording
+// ─────────────────────────────────────────────
+async function startRecording() {
+  $('setup-error').innerHTML = '';
+  $('start-btn').disabled = true;
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    $('setup-error').innerHTML = `<div class="err">Camera API not available.</div>`;
+    $('start-btn').disabled = false; return;
+  }
+  if (!window.MediaRecorder) {
+    $('setup-error').innerHTML = `<div class="err">MediaRecorder not available. Try Safari iOS 14.3+.</div>`;
+    $('start-btn').disabled = false; return;
+  }
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: state.cameraFacing }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+  } catch (err) {
+    $('setup-error').innerHTML = `<div class="err">Camera error: ${err.message}</div>`;
+    $('start-btn').disabled = false; return;
+  }
+
+  state.videoStream = stream;
+  video.srcObject = stream;
+  await video.play();
+
+  state.chunks = [];
+  const mimeType = pickMimeType();
+  let recorder;
+  try {
+    recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  } catch (err) {
+    $('setup-error').innerHTML = `<div class="err">Recorder error: ${err.message}</div>`;
+    stream.getTracks().forEach(t => t.stop());
+    $('start-btn').disabled = false; return;
+  }
+  recorder.ondataavailable = e => { if (e.data?.size > 0) state.chunks.push(e.data); };
+  recorder.onstop = onRecordingStopped;
+  state.mediaRecorder = recorder;
+
+  // Request wake lock so screen stays on at poolside
+  try { state.wakeLock = await navigator.wakeLock?.request('screen'); } catch {}
+
+  resetSC();
+  state.startTime  = performance.now();
+  state.startedAt  = new Date().toISOString();
+  state.isRecording = true;
+  recorder.start();
+
+  showScreen(recordingDiv);
+
+  $('target-stroke').textContent = `${state.stroke} · ${state.mode}`;
+  $('target-time').textContent   = state.targetDuration > 0
+    ? `/ ${fmtTime(state.targetDuration)}` : 'manual stop';
+
+  // Reset live counter display
+  $('live-count').textContent = '0';
+  $('live-rate').textContent  = '—';
+  if (poseAvailable) { $('pose-dot').className = 'off'; $('pose-label').textContent = 'pose'; }
+  else               { $('pose-dot').className = 'na';  $('pose-label').textContent = 'no AI'; }
+
+  // ── Swimmer selection overlay ──
+  const overlay      = $('select-overlay');
+  const laneCanvas   = $('lane-canvas');
+  const confirmBtn   = $('select-confirm');
+  const retapBtn     = $('select-retap');
+  const laneInd      = $('lane-indicator');
+  const selectMsg    = $('select-msg');
+  overlay.style.display = 'flex';
+  confirmBtn.style.display = 'none';
+  retapBtn.style.display   = 'none';
+  laneInd.style.display    = 'none';
+
+  let pendingTapX = null; // normalised x of last tap (before confirm)
+
+  function onVideoTap(e) {
+    const rect   = video.getBoundingClientRect();
+    const tapX   = (e.clientX - rect.left) / rect.width;
+    pendingTapX  = Math.max(0, Math.min(1, tapX));
+    // Draw band preview
+    drawLaneBand(pendingTapX);
+    // Show confirm / retap buttons
+    selectMsg.querySelector('p').textContent   = 'Is that your swimmer?';
+    selectMsg.querySelector('small').textContent = 'Tap again to adjust';
+    confirmBtn.style.display = '';
+    retapBtn.style.display   = '';
+  }
+
+  function confirmSelection() {
+    if (pendingTapX === null) return;
+    state.laneBand = {
+      xMin: Math.max(0, pendingTapX - LANE_HALF_W),
+      xMax: Math.min(1, pendingTapX + LANE_HALF_W),
+    };
+    state.tracker   = null;  // initialised on first pose hit within band
+    state.selecting = false;
+    overlay.style.display = 'none';
+    laneInd.textContent   = 'Lane locked';
+    laneInd.style.display = '';
+    setTimeout(() => { laneInd.style.display = 'none'; }, 3000);
+    video.removeEventListener('click', onVideoTap);
+  }
+
+  function retapSelection() {
+    pendingTapX = null;
+    const ctx = laneCanvas.getContext('2d');
+    ctx.clearRect(0, 0, laneCanvas.width, laneCanvas.height);
+    selectMsg.querySelector('p').textContent   = 'Tap your swimmer';
+    selectMsg.querySelector('small').textContent = 'A lane band locks on — only that swimmer is tracked';
+    confirmBtn.style.display = 'none';
+    retapBtn.style.display   = 'none';
+  }
+
+  function skipSelection() {
+    state.laneBand = null;  // no band = accept any detection
+    state.tracker  = null;
+    state.selecting = false;
+    overlay.style.display = 'none';
+  }
+
+  video.addEventListener('click', onVideoTap);
+  confirmBtn.addEventListener('click', confirmSelection);
+  retapBtn.addEventListener('click', retapSelection);
+  $('select-skip').addEventListener('click', skipSelection);
+
+  sc.animId = requestAnimationFrame(poseLoop);
+
+  if (state.targetDuration > 0) {
+    state.autoStopTimer = setTimeout(stopRecording, state.targetDuration * 1000);
+  }
+}
+
+function stopRecording() {
+  if (state.autoStopTimer) { clearTimeout(state.autoStopTimer); state.autoStopTimer = null; }
+  state.isRecording = false;
+  if (sc.animId) { cancelAnimationFrame(sc.animId); sc.animId = null; }
+  state.wakeLock?.release().catch(() => {});
+  $('select-overlay').style.display = 'none';
+  // Close lap window: append video end time
+  const finalElapsed = (performance.now() - state.startTime) / 1000;
+  sc.lapTimes.push(parseFloat(finalElapsed.toFixed(2)));
+
+  if (state.mediaRecorder?.state !== 'inactive') {
+    state.mediaRecorder.stop();
+  } else {
+    onRecordingStopped();
+  }
+}
+
+function buildFilename(ext) {
+  const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const safe = state.swimmer.replace(/[^A-Za-z0-9]/g, '_');
+  const dur  = state.targetDuration > 0 ? `${state.targetDuration}s` : 'manual';
+  return `${safe}_${state.stroke}_${state.mode}_${dur}_${ts}.${ext}`;
+}
+
+function onRecordingStopped() {
+  if (state.videoStream) { state.videoStream.getTracks().forEach(t => t.stop()); state.videoStream = null; }
+
+  const elapsedSec = (performance.now() - state.startTime) / 1000;
+
+  // Flush final partial window
+  if (sc.winStrokes > 0 || sc.windows.length === 0) {
+    const dur = elapsedSec - sc.winStart;
+    if (dur > 1) {
+      sc.windows.push({ start: sc.winStart, end: elapsedSec,
+        strokes: sc.winStrokes, rate: (sc.winStrokes / dur) * 60 });
+    }
+  }
+
+  const mimeType = state.mediaRecorder?.mimeType || state.chunks[0]?.type || 'video/webm';
+  const blob     = new Blob(state.chunks, { type: mimeType });
+  state.recordedBlob = blob;
+  if (state.recordedUrl) URL.revokeObjectURL(state.recordedUrl);
+  state.recordedUrl = URL.createObjectURL(blob);
+
+  showScreen(savedDiv);
+
+  $('playback').src = state.recordedUrl;
+
+  const ext      = mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const filename = buildFilename(ext);
+
+  // Stroke stats
+  const avgRate  = elapsedSec > 2 ? Math.round((sc.totalStrokes / elapsedSec) * 60) : 0;
+  const nLaps    = Math.max(sc.lapTimes.length - 1, 0);
+  $('info-strokes').textContent  = poseAvailable ? String(sc.totalStrokes) : '—';
+  $('info-rate').textContent     = poseAvailable && avgRate > 0 ? `${avgRate}/min` : '—';
+  $('info-filename').textContent = filename;
+  $('info-duration').textContent = fmtTime(elapsedSec);
+  $('info-size').textContent     = fmtSize(blob.size);
+
+  const pool_m = state.mode === 'lap_50' ? 50 : 25;
+  const lapCount = nLaps > 0 ? nLaps : null;
+  $('saved-title').textContent = lapCount
+    ? `${lapCount} length${lapCount !== 1 ? 's' : ''} · ${lapCount * pool_m}m`
+    : 'Session saved';
+
+  // Endless window chart
+  const endlessEl = $('endless-section');
+  if (poseAvailable && state.mode === 'endless' && sc.windows.length > 0) {
+    endlessEl.style.display = '';
+    const maxRate = Math.max(...sc.windows.map(w => w.rate), 1);
+    $('endless-chart').innerHTML = sc.windows.map(w => `
+      <div class="win-row">
+        <div class="win-lbl">${Math.round(w.start)}s</div>
+        <div class="win-bar-wrap"><div class="win-bar" style="width:${Math.round((w.rate/maxRate)*100)}%"></div></div>
+        <div class="win-rate">${Math.round(w.rate)}/m</div>
+      </div>`).join('');
+    if (sc.windows.length >= 4) {
+      const q   = Math.max(Math.floor(sc.windows.length / 4), 1);
+      const fq  = sc.windows.slice(0, q).reduce((s, w) => s + w.rate, 0) / q;
+      const lq  = sc.windows.slice(-q).reduce((s, w) => s + w.rate, 0) / q;
+      const dec = fq > 0 ? ((fq - lq) / fq * 100).toFixed(0) : 0;
+      $('decay-label').textContent = `Stroke rate decay: ${dec}% (first vs last quarter)`;
+    } else {
+      $('decay-label').textContent = '';
+    }
+  } else {
+    endlessEl.style.display = 'none';
+  }
+
+  // Save session to localStorage for history
+  try {
+    const pool_m = state.mode === 'lap_50' ? 50 : 25;
+    const sessions = JSON.parse(localStorage.getItem('swim_sessions') || '[]');
+
+    // Build per-lap entries for lap modes using wall-touch timestamps from sc.lapTimes
+    let lengths = [];
+    if (state.mode !== 'endless' && sc.lapTimes && sc.lapTimes.length > 1) {
+      for (let i = 0; i < sc.lapTimes.length - 1; i++) {
+        const t0 = sc.lapTimes[i], t1 = sc.lapTimes[i + 1];
+        const dur = t1 - t0;
+        const strokes = sc.strokeTimes.filter(t => t >= t0 * 1000 + state.startTime
+          && t < t1 * 1000 + state.startTime).length;
+        const pace = dur > 0 ? (dur / pool_m) * 100 : 0;
+        const dps  = strokes > 0 ? pool_m / strokes : 0;
+        lengths.push({
+          length_number: i + 1,
+          t_start: t0, t_end: t1, duration_s: parseFloat(dur.toFixed(2)),
+          strokes, pace_100m: parseFloat(pace.toFixed(1)),
+          dps: parseFloat(dps.toFixed(2)),
+          swolf: Math.round(dur) + strokes,
+          stroke_rate: dur > 0 ? parseFloat(((strokes / dur) * 60).toFixed(1)) : 0,
+        });
+      }
+    }
+
+    sessions.unshift({
+      id: Date.now(), swimmer: state.swimmer, stroke: state.stroke,
+      mode: state.mode, pool_m,
+      durationS: Math.round(elapsedSec),
+      strokes: sc.totalStrokes, avgRate, filename,
+      lengths,
+      windows: sc.windows.map(w => ({ ...w })),
+      savedAt: new Date().toISOString(),
+      poseUsed: poseAvailable,
+    });
+    localStorage.setItem('swim_sessions', JSON.stringify(sessions.slice(0, 100)));
+  } catch {}
+
+  // Download
+  $('download-btn').onclick = () => {
+    const a = document.createElement('a');
+    a.href = state.recordedUrl; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+
+  // Share (iOS)
+  $('share-btn').style.display = 'none';
+  if (navigator.canShare) {
+    const file = new File([blob], filename, { type: mimeType });
+    if (navigator.canShare({ files: [file] })) {
+      $('share-btn').style.display = '';
+      $('share-btn').onclick = async () => {
+        try { await navigator.share({ files: [file], title: filename }); } catch {}
+      };
+    }
+  }
+}
+
+$('start-btn').addEventListener('click', startRecording);
+$('stop-btn').addEventListener('click', stopRecording);
+$('again-btn').addEventListener('click', () => {
+  if (state.recordedUrl) { URL.revokeObjectURL(state.recordedUrl); state.recordedUrl = null; }
+  state.recordedBlob = null; state.chunks = [];
+  showScreen(setupDiv);
+  $('start-btn').disabled = false;
+});
+
+// ─────────────────────────────────────────────
+// History screen
+// ─────────────────────────────────────────────
+const STROKE_ICON = { free: '🏊', back: '🔄', breast: '🐸', fly: '🦋' };
+const STROKE_LABEL = { free: 'Freestyle', back: 'Backstroke', breast: 'Breaststroke', fly: 'Butterfly' };
+
+function loadSessions() {
+  try { return JSON.parse(localStorage.getItem('swim_sessions') || '[]'); }
+  catch { return []; }
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderHistory() {
+  const sessions = loadSessions();
+  const list = $('history-list');
+  const empty = $('history-empty');
+  // Remove old session cards
+  [...list.querySelectorAll('.sess-card')].forEach(c => c.remove());
+
+  if (sessions.length === 0) {
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  sessions.forEach((s, idx) => {
+    const card = document.createElement('div');
+    card.className = 'sess-card';
+    const icon  = STROKE_ICON[s.stroke] || '🏊';
+    const label = STROKE_LABEL[s.stroke] || s.stroke;
+    const modeStr = s.mode === 'endless' ? 'Endless' : s.mode === 'lap_25' ? '25m lap' : '50m lap';
+
+    // Build per-lap table if saved
+    let bodyHtml = '';
+    if (s.lengths && s.lengths.length > 0) {
+      bodyHtml += `<table class="sess-table">
+        <thead><tr>
+          <th>#</th><th>Time</th><th>Strokes</th>
+          <th>Pace</th><th>DPS</th><th>SWOLF</th>
+        </tr></thead><tbody>`;
+      s.lengths.forEach(l => {
+        const pace = l.pace_100m ? `${l.pace_100m.toFixed(0)}s` : '—';
+        const dps  = l.dps ? `${l.dps.toFixed(1)}m` : '—';
+        bodyHtml += `<tr>
+          <td>${l.length_number}</td>
+          <td>${l.duration_s.toFixed(1)}s</td>
+          <td>${l.strokes}</td>
+          <td>${pace}</td>
+          <td>${dps}</td>
+          <td>${l.swolf || '—'}</td>
+        </tr>`;
+      });
+      bodyHtml += '</tbody></table>';
+    } else if (s.windows && s.windows.length > 0) {
+      // Endless mode: per-window rate chart
+      const maxRate = Math.max(...s.windows.map(w => w.rate), 1);
+      bodyHtml += `<div class="win-section"><div class="k">Stroke rate per 30s window</div>`;
+      s.windows.forEach(w => {
+        const pct = Math.round((w.rate / maxRate) * 100);
+        bodyHtml += `<div class="win-row2">
+          <div class="win-lbl2">${Math.round(w.start)}s</div>
+          <div class="win-bar-wrap2"><div class="win-bar2" style="width:${pct}%"></div></div>
+          <div class="win-rate2">${Math.round(w.rate)}/m</div>
+        </div>`;
+      });
+      bodyHtml += '</div>';
+    }
+    bodyHtml += `<div class="sess-actions">
+      <button class="sess-del" data-idx="${idx}">Delete session</button>
+    </div>`;
+
+    card.innerHTML = `
+      <div class="sess-head">
+        <div class="sess-icon">${icon}</div>
+        <div class="sess-meta">
+          <div class="sess-title">${s.swimmer || 'Swimmer'} · ${label}</div>
+          <div class="sess-sub">${fmtDate(s.savedAt)}  ·  ${modeStr}</div>
+        </div>
+        <div class="sess-stats">
+          <div class="sess-strokes">${s.strokes}</div>
+          <div class="sess-dur">${fmtTime(s.durationS)}</div>
+        </div>
+        <div class="sess-chevron">›</div>
+      </div>
+      <div class="sess-body">${bodyHtml}</div>`;
+
+    // Expand/collapse
+    card.querySelector('.sess-head').addEventListener('click', () => {
+      card.classList.toggle('open');
+    });
+    // Delete
+    card.querySelector('.sess-del').addEventListener('click', e => {
+      e.stopPropagation();
+      const sessions2 = loadSessions();
+      sessions2.splice(idx, 1);
+      localStorage.setItem('swim_sessions', JSON.stringify(sessions2));
+      renderHistory();
+    });
+
+    list.appendChild(card);
+  });
+}
+
+$('history-link').addEventListener('click', () => {
+  renderHistory();
+  showScreen(historyDiv);
+});
+$('history-back').addEventListener('click', () => showScreen(setupDiv));
+$('history-export').addEventListener('click', () => {
+  const sessions = loadSessions();
+  const json = JSON.stringify(sessions, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `swim_sessions_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+</script>
+</body>
+</html>
