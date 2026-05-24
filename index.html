@@ -79,6 +79,11 @@
     font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums;
     color: var(--orange);
   }
+  #live-pace {
+    font-size: 13px; opacity: 0.75; margin-top: 6px; line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+  #live-pace .pace-proj { color: var(--orange); font-weight: 700; font-size: 15px; }
   #pose-indicator {
     margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 6px;
     font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.75;
@@ -314,6 +319,7 @@
       <div id="live-count">0</div>
       <div id="live-label">Strokes</div>
       <div id="live-rate">—</div>
+      <div id="live-pace"></div>
       <div id="pose-indicator">
         <div id="pose-dot" class="na"></div>
         <span id="pose-label">AI loading</span>
@@ -359,6 +365,28 @@
       <div class="info-card">
         <div class="k">File size</div>
         <div class="v" id="info-size">—</div>
+      </div>
+    </div>
+
+    <!-- Pace + projection (shown when laps detected) -->
+    <div id="proj-section" style="display:none">
+      <div class="cards-row">
+        <div class="info-card big">
+          <div class="k">Swimming pace</div>
+          <div class="v" id="info-pace">—</div>
+        </div>
+        <div class="info-card big">
+          <div class="k">Speed</div>
+          <div class="v" id="info-speed">—</div>
+        </div>
+      </div>
+      <div class="info-card" style="background:var(--orange);color:white">
+        <div class="k" style="color:rgba(255,255,255,0.75)">Projected 50m (with start &amp; turn)</div>
+        <div class="v" id="info-proj50" style="font-size:36px;font-variant-numeric:tabular-nums">—</div>
+      </div>
+      <div class="info-card">
+        <div class="k">How we calculate this</div>
+        <div class="v" id="info-proj-note" style="font-size:13px;line-height:1.5;color:var(--grey)">—</div>
       </div>
     </div>
 
@@ -670,6 +698,55 @@ function processLandmarks(lm, nowMs) {
   return stroked;
 }
 
+// ─────────────────────────────────────────────
+// Pace + race projection helpers
+// ─────────────────────────────────────────────
+const START_BONUS_S = 4.0;   // dive start advantage (s)
+const TURN_BONUS_S  = 2.0;   // push-off advantage per turn (s)
+
+function getPoolM() {
+  return state.mode === 'lap_50' ? 50 : 25;
+}
+
+function cleanLapDurations() {
+  // sc.lapTimes is elapsed-seconds: [0, t1, t2, ..., t_end]
+  // Compute per-lap durations, excluding the final (potentially incomplete) lap
+  const times = sc.lapTimes;
+  if (times.length < 2) return [];
+  const durs = [];
+  for (let i = 0; i < times.length - 2; i++) {   // stop before last gap (ends at video end)
+    durs.push(times[i + 1] - times[i]);
+  }
+  return durs;
+}
+
+function computePace() {
+  const durs = cleanLapDurations();
+  if (!durs.length) return null;
+  const pool  = getPoolM();
+  // Median duration to be robust to any anomalous lap
+  const sorted = [...durs].sort((a, b) => a - b);
+  const med    = sorted[Math.floor(sorted.length / 2)];
+  const speed  = pool / med;          // m/s
+  const pace   = 100 / speed;         // s per 100m
+  return { speed, pace, lapDur: med };
+}
+
+function projectTime(speed, targetDist) {
+  if (!speed || speed <= 0) return null;
+  const pool    = getPoolM();
+  const nTurns  = Math.max(0, Math.round(targetDist / pool) - 1);
+  const raw     = targetDist / speed;
+  const proj    = Math.max(raw - START_BONUS_S - nTurns * TURN_BONUS_S, targetDist / 4);
+  return { raw, proj, nTurns };
+}
+
+function fmtSecs(s) {
+  const m = Math.floor(s / 60);
+  const sec = (s % 60).toFixed(2);
+  return m > 0 ? `${m}:${String(sec).padStart(5, '0')}` : `${s.toFixed(2)}s`;
+}
+
 function rollingRate(nowMs) {
   const cutoffMs = nowMs - 30000;
   const recent = sc.strokeTimes.filter(t => t >= cutoffMs);
@@ -731,6 +808,18 @@ function poseLoop() {
   const rate = rollingRate(nowMs);
   $('live-rate').textContent  = rate > 0 ? `${rate}/min` : '—';
   $('timer').textContent       = fmtTime(elapsed);
+
+  // Live pace + projection (updates when at least 1 complete lap timed)
+  const paceEl = $('live-pace');
+  const paceData = computePace();
+  if (paceData) {
+    const p50 = projectTime(paceData.speed, 50);
+    paceEl.innerHTML =
+      `${paceData.pace.toFixed(0)}s/100m &nbsp;·&nbsp; ${paceData.speed.toFixed(2)} m/s` +
+      (p50 ? `<br><span class="pace-proj">Proj 50m: ${fmtSecs(p50.proj)}</span>` : '');
+  } else {
+    paceEl.textContent = '';
+  }
 
   if (poseAvailable) {
     $('pose-dot').className   = sc.poseOn ? 'on' : 'off';
@@ -942,6 +1031,24 @@ function onRecordingStopped() {
   $('saved-title').textContent = lapCount
     ? `${lapCount} length${lapCount !== 1 ? 's' : ''} · ${lapCount * pool_m}m`
     : 'Session saved';
+
+  // Pace + projection cards
+  const paceData = computePace();
+  const projSection = $('proj-section');
+  if (paceData && paceAvailable) {
+    const p50  = projectTime(paceData.speed, 50);
+    const nT   = p50 ? p50.nTurns : 0;
+    $('info-pace').textContent  = `${paceData.pace.toFixed(0)}s / 100m`;
+    $('info-speed').textContent = `${paceData.speed.toFixed(2)} m/s`;
+    $('info-proj50').textContent = p50 ? fmtSecs(p50.proj) : '—';
+    $('info-proj-note').textContent =
+      `Raw pace × 50m = ${p50 ? fmtSecs(p50.raw) : '—'}. ` +
+      `Minus ${START_BONUS_S}s dive start + ${nT} turn${nT !== 1 ? 's' : ''} × ${TURN_BONUS_S}s each. ` +
+      `Dive and push-off carry ~15m at speed — faster than open swimming.`;
+    projSection.style.display = '';
+  } else {
+    projSection.style.display = 'none';
+  }
 
   // Endless window chart
   const endlessEl = $('endless-section');
