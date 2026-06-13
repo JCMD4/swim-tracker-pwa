@@ -132,43 +132,106 @@
     padding: 8px 20px; background: none; color: rgba(255,255,255,0.55);
     border: none; font-size: 13px; cursor: pointer; text-decoration: underline; }
 
-  /* ── Saved ── */
-  #saved { flex: 1; display: none; flex-direction: column; padding: 20px; gap: 12px;
-    overflow-y: auto; padding-top: env(safe-area-inset-top, 20px); }
-  .info-card { background: white; color: var(--navy); padding: 14px 16px; border-radius: 12px; }
-  .info-card .k { font-size: 11px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
-  .info-card .v { font-size: 17px; font-weight: 600; word-break: break-word; }
-  .info-card .v-sub { font-size: 12px; color: var(--grey); margin-top: 3px; line-height: 1.4; }
-  .info-card.hero .v { font-size: 42px; font-variant-numeric: tabular-nums; }
-  .info-card.big .v { font-size: 26px; font-variant-numeric: tabular-nums; }
-  .cards-row { display: flex; gap: 10px; }
-  .cards-row .info-card { flex: 1; }
-  #playback { width: 100%; border-radius: 12px; background: black; max-height: 220px; object-fit: contain; }
+  /* ── Review / Saved ── */
+  #saved { flex: 1; display: none; flex-direction: column; background: #f2f4f7; overflow-y: auto; }
 
-  /* Per-lap table */
-  #lap-table-section { background: white; color: var(--navy); padding: 14px 16px; border-radius: 12px; display: none; }
-  #lap-table-section .k { font-size: 11px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
-  .lap-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
-  .lap-table th { padding: 6px 8px; text-align: center; background: var(--light);
-    color: var(--grey); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; }
-  .lap-table td { padding: 7px 8px; text-align: center; border-top: 1px solid #eee; }
-  .lap-table tr:nth-child(odd) td { background: #fafafa; }
+  /* Header */
+  #rv-header { background: var(--navy); padding: 14px 16px;
+    padding-top: calc(14px + env(safe-area-inset-top, 0));
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  #rv-back { background: none; border: none; color: white; font-size: 14px;
+    padding: 6px 0; cursor: pointer; opacity: 0.85; font-weight: 600; white-space: nowrap; }
+  #rv-titleblock { flex: 1; min-width: 0; text-align: center; }
+  #rv-name { font-size: 15px; font-weight: 700; color: white;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #rv-meta { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+  #rv-header-hist { background: rgba(255,255,255,0.12); border: none; color: white;
+    font-size: 13px; padding: 8px 14px; border-radius: 999px; cursor: pointer;
+    font-weight: 600; white-space: nowrap; }
 
-  /* Endless window chart */
-  #endless-section { background: white; color: var(--navy); padding: 14px 16px; border-radius: 12px; display: none; }
-  #endless-section .k { font-size: 11px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
-  .win-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-  .win-lbl { font-size: 11px; color: var(--grey); width: 28px; text-align: right; flex-shrink: 0; }
-  .win-bar-wrap { flex: 1; background: var(--light); border-radius: 4px; height: 18px; overflow: hidden; }
-  .win-bar { height: 100%; background: var(--teal); border-radius: 4px; transition: width 0.4s; }
-  .win-rate { font-size: 12px; font-weight: 600; color: var(--navy); width: 40px; flex-shrink: 0; }
+  /* Video */
+  #playback { width: 100%; background: black; max-height: 240px; object-fit: contain;
+    display: block; flex-shrink: 0; }
 
-  .button-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .button-row button { flex: 1; min-width: 130px; padding: 17px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
-  #download-btn { background: var(--orange); color: white; }
-  #share-btn { background: var(--teal); color: white; }
-  #again-btn { background: white; color: var(--navy); }
-  #proj-section { display: none; }
+  /* Hero stats strip */
+  #rv-hero { background: white; display: flex; border-bottom: 1px solid #e5e8ec; }
+  .rv-hero-stat { flex: 1; padding: 18px 6px; text-align: center; }
+  .rv-hero-div { width: 1px; background: #e5e8ec; margin: 12px 0; flex-shrink: 0; }
+  .rvh-val { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums;
+    color: var(--navy); line-height: 1; }
+  .rvh-key { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: #8a8fa8; margin-top: 4px; font-weight: 600; }
+
+  /* Metrics grid */
+  #rv-metrics { background: white; display: none; grid-template-columns: repeat(4,1fr);
+    border-top: 1px solid #e5e8ec; border-bottom: 1px solid #e5e8ec; }
+  .rv-metric { padding: 13px 4px; text-align: center;
+    border-right: 1px solid #e5e8ec; }
+  .rv-metric:last-child { border-right: none; }
+  .rvm-val { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums;
+    color: var(--teal); line-height: 1; }
+  .rvm-key { font-size: 9px; text-transform: uppercase; letter-spacing: 0.3px;
+    color: #8a8fa8; margin-top: 3px; font-weight: 600; }
+  .rvm-sub { font-size: 9px; color: #bbb; margin-top: 2px; }
+
+  /* Analysis banner */
+  #rv-analysis { display: none; align-items: center; gap: 12px;
+    margin: 12px 12px 0; border-radius: 12px; padding: 12px 14px; }
+  #rv-analysis.pos { background: #fff7ed; border: 1px solid #fed7aa; }
+  #rv-analysis.neg { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  #rv-analysis.even { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  #rv-analysis.none { background: #f8fafc; border: 1px solid #e2e8f0; }
+  #rv-analysis-icon { font-size: 24px; flex-shrink: 0; }
+  #rv-analysis-text { font-size: 13px; color: #374151; line-height: 1.45; }
+  .rv-analysis-head { font-weight: 700; }
+
+  /* Section header */
+  .rv-sec { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+    color: #8a8fa8; font-weight: 700; padding: 16px 16px 8px; }
+
+  /* Splits list */
+  #rv-splits-section { background: white; margin-top: 12px; }
+  .split-row { display: flex; align-items: center; padding: 13px 14px 13px 0;
+    border-top: 1px solid #f0f2f5; position: relative; }
+  .split-row:first-child { border-top: none; }
+  .split-accent { width: 4px; min-height: 50px; align-self: stretch;
+    flex-shrink: 0; margin-right: 12px; }
+  .split-accent.fast { background: #4ade80; }
+  .split-accent.slow { background: #fb923c; }
+  .split-accent.mid  { background: #e5e8ec; }
+  .split-left { flex: 1; min-width: 0; }
+  .split-dist { font-size: 16px; font-weight: 500; color: #111; }
+  .split-sub  { font-size: 12px; color: #999; margin-top: 3px; line-height: 1.3; }
+  .split-right { text-align: right; flex-shrink: 0; }
+  .split-time { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; color: #111; line-height: 1; }
+  .split-cumul { font-size: 12px; color: #aaa; margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+  /* Pace chart */
+  #rv-pace-chart, #rv-endless-chart { background: white; margin-top: 12px; padding-bottom: 14px; }
+  .pbar-row { display: flex; align-items: center; gap: 8px; padding: 3px 16px; }
+  .pbar-lbl { font-size: 11px; color: #888; width: 38px; text-align: right;
+    flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .pbar-track { flex: 1; background: #f0f2f5; border-radius: 4px; height: 16px; overflow: hidden; }
+  .pbar-fill { height: 100%; border-radius: 4px; background: var(--teal); }
+  .pbar-fill.fast { background: #4ade80; }
+  .pbar-fill.slow { background: #fb923c; }
+  .pbar-val { font-size: 11px; color: #555; width: 44px; flex-shrink: 0;
+    font-variant-numeric: tabular-nums; }
+  .rv-note { font-size: 12px; color: #888; padding: 6px 16px 2px; line-height: 1.4; }
+
+  /* File + footer */
+  #rv-file-info { font-size: 11px; color: #bbb; padding: 10px 16px; text-align: center; }
+  #rv-footer { display: flex; flex-shrink: 0; background: white; border-top: 1px solid #e5e8ec;
+    padding-bottom: env(safe-area-inset-bottom, 0); }
+  #again-btn { flex: 1; padding: 20px 6px; background: var(--orange); color: white;
+    border: none; font-size: 15px; font-weight: 700; cursor: pointer; }
+  #rv-hist-footer { flex: 1; padding: 20px 6px; background: var(--navy); color: white;
+    border: none; font-size: 15px; font-weight: 700; cursor: pointer; }
+  #download-btn { flex: 1; padding: 20px 6px; background: var(--teal); color: white;
+    border: none; font-size: 15px; font-weight: 700; cursor: pointer; }
+  #share-btn { flex: 0 0 auto; padding: 20px 14px; background: var(--teal); color: white;
+    border: none; font-size: 13px; font-weight: 700; cursor: pointer;
+    border-left: 1px solid rgba(255,255,255,0.2); }
 
   /* ── History ── */
   #history { flex: 1; display: none; flex-direction: column; padding: 0; overflow: hidden; }
@@ -430,101 +493,96 @@
   </div>
 </div>
 
-<!-- ══ SAVED ══ -->
+<!-- ══ SAVED — swim review ══ -->
 <div id="saved">
-  <h1 id="saved-title">Session saved</h1>
+
+  <div id="rv-header">
+    <button id="rv-back">← New swim</button>
+    <div id="rv-titleblock">
+      <div id="rv-name">—</div>
+      <div id="rv-meta">—</div>
+    </div>
+    <button id="rv-header-hist">History</button>
+  </div>
+
   <video id="playback" controls playsinline></video>
 
-  <div class="cards-row">
-    <div class="info-card hero">
-      <div class="k">Strokes</div>
-      <div class="v" id="info-strokes">—</div>
+  <!-- Time | Distance | Pace -->
+  <div id="rv-hero">
+    <div class="rv-hero-stat">
+      <div class="rvh-val" id="rv-time">—</div>
+      <div class="rvh-key" id="rv-time-key">Total time</div>
     </div>
-    <div class="info-card big">
-      <div class="k">Avg rate</div>
-      <div class="v" id="info-rate">—</div>
+    <div class="rv-hero-div"></div>
+    <div class="rv-hero-stat">
+      <div class="rvh-val" id="rv-dist">—</div>
+      <div class="rvh-key" id="rv-dist-key">Distance</div>
     </div>
-  </div>
-
-  <!-- SWOLF + DPS (shown for lap sessions) -->
-  <div class="cards-row" id="efficiency-row" style="display:none">
-    <div class="info-card big">
-      <div class="k">SWOLF</div>
-      <div class="v" id="info-swolf">—</div>
-      <div class="v-sub">lower is better</div>
-    </div>
-    <div class="info-card big">
-      <div class="k">Avg DPS</div>
-      <div class="v" id="info-dps">—</div>
+    <div class="rv-hero-div"></div>
+    <div class="rv-hero-stat">
+      <div class="rvh-val" id="rv-pace100">—</div>
+      <div class="rvh-key" id="rv-pace-key">Per 100m</div>
     </div>
   </div>
 
-  <!-- Height-normalised DPS -->
-  <div class="info-card" id="norm-dps-card" style="display:none">
-    <div class="k">Height-normalised DPS</div>
-    <div class="v" id="info-norm-dps">—</div>
-    <div class="v-sub" id="info-norm-dps-sub"></div>
+  <!-- SWOLF | DPS | DPS/height | Rate  (lap mode) -->
+  <div id="rv-metrics">
+    <div class="rv-metric">
+      <div class="rvm-val" id="rv-swolf">—</div>
+      <div class="rvm-key">SWOLF</div>
+      <div class="rvm-sub">lower = better</div>
+    </div>
+    <div class="rv-metric">
+      <div class="rvm-val" id="rv-dps">—</div>
+      <div class="rvm-key">DPS</div>
+      <div class="rvm-sub">metres</div>
+    </div>
+    <div class="rv-metric">
+      <div class="rvm-val" id="rv-ndps">—</div>
+      <div class="rvm-key">DPS / ht</div>
+      <div class="rvm-sub">normalised</div>
+    </div>
+    <div class="rv-metric">
+      <div class="rvm-val" id="rv-rate">—</div>
+      <div class="rvm-key">Rate / min</div>
+      <div class="rvm-sub" id="rv-speed-sub">—</div>
+    </div>
+  </div>
+
+  <!-- Pacing analysis banner -->
+  <div id="rv-analysis">
+    <div id="rv-analysis-icon"></div>
+    <div id="rv-analysis-text"></div>
+  </div>
+
+  <!-- Splits list (lap mode) -->
+  <div id="rv-splits-section">
+    <div class="rv-sec" id="rv-splits-title">Splits</div>
+    <div id="rv-splits-list"></div>
+  </div>
+
+  <!-- Pace variation chart (lap mode) -->
+  <div id="rv-pace-chart">
+    <div class="rv-sec">Pace variation</div>
+    <div id="rv-pace-bars"></div>
+    <div id="rv-consistency-note" class="rv-note"></div>
   </div>
 
   <!-- Endless rate chart -->
-  <div id="endless-section">
-    <div class="k">Stroke rate per 30s window</div>
-    <div id="endless-chart"></div>
-    <div style="margin-top:8px;font-size:12px;color:var(--grey)" id="decay-label"></div>
+  <div id="rv-endless-chart">
+    <div class="rv-sec">Stroke rate · 30s windows</div>
+    <div id="rv-rate-bars"></div>
+    <div id="rv-decay-note" class="rv-note"></div>
   </div>
 
-  <!-- Per-lap table -->
-  <div id="lap-table-section">
-    <div class="k">Per-length breakdown</div>
-    <table class="lap-table">
-      <thead><tr><th>#</th><th>Time</th><th>Strokes</th><th>Pace/100</th><th>DPS</th><th>SWOLF</th></tr></thead>
-      <tbody id="lap-table-body"></tbody>
-    </table>
-  </div>
+  <div id="rv-file-info"></div>
 
-  <div class="info-card big">
-    <div class="k">Filename</div>
-    <div class="v" id="info-filename">—</div>
-  </div>
-  <div class="cards-row">
-    <div class="info-card">
-      <div class="k">Duration</div>
-      <div class="v" id="info-duration">—</div>
-    </div>
-    <div class="info-card">
-      <div class="k">File size</div>
-      <div class="v" id="info-size">—</div>
-    </div>
-  </div>
-
-  <div id="proj-section">
-    <div class="cards-row">
-      <div class="info-card big">
-        <div class="k">Swimming pace</div>
-        <div class="v" id="info-pace">—</div>
-      </div>
-      <div class="info-card big">
-        <div class="k">Speed</div>
-        <div class="v" id="info-speed">—</div>
-      </div>
-    </div>
-    <div class="info-card" style="background:var(--orange);color:white">
-      <div class="k" style="color:rgba(255,255,255,0.75)">Projected 50m (with start &amp; turn)</div>
-      <div class="v" id="info-proj50" style="font-size:36px;font-variant-numeric:tabular-nums">—</div>
-    </div>
-    <div class="info-card">
-      <div class="k">How we calculate this</div>
-      <div class="v" id="info-proj-note" style="font-size:13px;line-height:1.5;color:var(--grey)">—</div>
-    </div>
-  </div>
-
-  <div class="button-row">
+  <div id="rv-footer">
+    <button id="again-btn">New Swim</button>
+    <button id="rv-hist-footer">History</button>
     <button id="download-btn">Download</button>
     <button id="share-btn" style="display:none">Share</button>
-    <button id="again-btn">Record again</button>
   </div>
-
-  <p class="subtle">Download to save to Files, then transfer to the Spark for full pose analysis and database logging.</p>
 </div>
 
 <!-- ══ HISTORY ══ -->
@@ -1283,10 +1341,25 @@ function buildFilename(ext) {
   return `${safe}_${state.stroke}_${state.poolSize}m_${state.mode}_${dur}_${ts}.${ext}`;
 }
 
+// ─────────────────────────────────────────────
+// Format helpers for review screen
+// ─────────────────────────────────────────────
+function fmtSplit(s) {
+  if (s < 60) return s.toFixed(2);
+  const m = Math.floor(s / 60);
+  const sec = (s % 60).toFixed(2);
+  return `${m}:${String(sec).padStart(5, '0')}`;
+}
+
+function _stddev(arr) {
+  if (arr.length < 2) return 0;
+  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+  return Math.sqrt(arr.reduce((s, v) => s + (v - mean) ** 2, 0) / arr.length);
+}
+
 function onRecordingStopped() {
   if (state.videoStream) { state.videoStream.getTracks().forEach(t => t.stop()); state.videoStream = null; }
   const nowMs = performance.now();
-  // Use race time if start was detected, else total recording time
   const elapsedSec = raceStartTime ? (nowMs - raceStartTime) / 1000 : (nowMs - state.startTime) / 1000;
 
   if (sc.winStrokes > 0 || sc.windows.length === 0) {
@@ -1304,119 +1377,190 @@ function onRecordingStopped() {
   showScreen(savedDiv);
   $('playback').src = state.recordedUrl;
 
-  const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const ext      = mimeType.includes('mp4') ? 'mp4' : 'webm';
   const filename = buildFilename(ext);
-  const avgRate  = elapsedSec > 2 ? Math.round((sc.totalStrokes / elapsedSec) * 60) : 0;
   const pool_m   = getPoolM();
   const nLaps    = Math.max(sc.lapTimes.length - 1, 0);
+  const isLap    = state.mode === 'lap' && nLaps > 0;
+  const avgRate  = elapsedSec > 2 ? Math.round((sc.totalStrokes / elapsedSec) * 60) : 0;
+  const STROKE_NAMES = { free:'Freestyle', back:'Backstroke', breast:'Breaststroke', fly:'Butterfly' };
 
-  $('info-strokes').textContent  = poseAvailable ? String(sc.totalStrokes) : '—';
-  $('info-rate').textContent     = poseAvailable && avgRate > 0 ? `${avgRate}/min` : '—';
-  $('info-filename').textContent = filename;
-  $('info-duration').textContent = fmtTime(elapsedSec);
-  $('info-size').textContent     = fmtSize(blob.size);
+  // ── Header ─────────────────────────────────────────────────
+  $('rv-name').textContent = `${state.swimmer} · ${STROKE_NAMES[state.stroke] || state.stroke}`;
+  const now = new Date();
+  $('rv-meta').textContent =
+    `${now.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})} · ${pool_m}m pool`;
 
-  const lapCount = nLaps > 0 ? nLaps : null;
-  $('saved-title').textContent = lapCount
-    ? `${lapCount} length${lapCount !== 1 ? 's' : ''} · ${lapCount * pool_m}m`
-    : 'Session saved';
-
-  // Build per-lap metrics
+  // ── Build per-length data ───────────────────────────────────
   let lengths = [];
-  if (state.mode === 'lap' && sc.lapTimes.length > 1) {
+  if (isLap) {
+    const ref = raceStartTime || state.startTime;
     for (let i = 0; i < sc.lapTimes.length - 1; i++) {
-      const t0 = sc.lapTimes[i], t1 = sc.lapTimes[i+1];
+      const t0 = sc.lapTimes[i], t1 = sc.lapTimes[i + 1];
       const dur = t1 - t0;
       const strokes = sc.strokeTimes.filter(t =>
-        t >= t0 * 1000 + state.startTime && t < t1 * 1000 + state.startTime).length;
-      const pace  = dur > 0 ? (dur / pool_m) * 100 : 0;
+        t >= t0 * 1000 + ref && t < t1 * 1000 + ref).length;
       const dps   = strokes > 0 ? pool_m / strokes : 0;
       const swolf = Math.round(dur) + strokes;
+      const rate  = dur > 0 && strokes > 0 ? (strokes / dur) * 60 : 0;
       lengths.push({
-        length_number: i+1, t_start: t0, t_end: t1,
-        duration_s: parseFloat(dur.toFixed(2)), strokes,
-        pace_100m: parseFloat(pace.toFixed(1)),
-        dps: parseFloat(dps.toFixed(2)), swolf,
-        stroke_rate: dur > 0 ? parseFloat(((strokes / dur) * 60).toFixed(1)) : 0,
+        n: i + 1,
+        cumDist: (i + 1) * pool_m,
+        t0, t1,
+        dur: parseFloat(dur.toFixed(2)),
+        strokes, dps: parseFloat(dps.toFixed(2)),
+        swolf, rate: parseFloat(rate.toFixed(1)),
+        pace100: dur > 0 ? parseFloat(((dur / pool_m) * 100).toFixed(1)) : 0,
       });
     }
   }
 
-  // Efficiency row (SWOLF + DPS)
-  const effRow = $('efficiency-row');
+  // ── Hero stats ─────────────────────────────────────────────
+  const totalDist = isLap ? nLaps * pool_m : null;
+  const speed     = totalDist && elapsedSec > 0 ? totalDist / elapsedSec : null;
+  const pace100   = speed ? 100 / speed : null;
+
+  $('rv-time').textContent  = fmtTime(elapsedSec);
+  $('rv-dist').textContent  = totalDist ? `${totalDist}m` : `${sc.totalStrokes} str`;
+  $('rv-dist-key').textContent = totalDist ? 'Distance' : 'Total strokes';
+  $('rv-pace100').textContent  = pace100 ? fmtSplit(pace100) : avgRate > 0 ? `${avgRate}/min` : '—';
+  $('rv-pace-key').textContent = pace100 ? 'Per 100m' : 'Avg rate';
+
+  // ── Metrics grid (lap mode) ────────────────────────────────
+  const metricsEl = $('rv-metrics');
   if (poseAvailable && lengths.length > 0) {
     const avgSwolf = Math.round(lengths.reduce((s, l) => s + l.swolf, 0) / lengths.length);
     const validDps = lengths.filter(l => l.dps > 0);
-    const avgDps   = validDps.length > 0 ? (validDps.reduce((s, l) => s + l.dps, 0) / validDps.length).toFixed(1) : null;
-    $('info-swolf').textContent = String(avgSwolf);
-    $('info-dps').textContent   = avgDps ? `${avgDps}m` : '—';
-    effRow.style.display = '';
-  } else { effRow.style.display = 'none'; }
+    const avgDps   = validDps.length ? validDps.reduce((s, l) => s + l.dps, 0) / validDps.length : 0;
+    const normDps  = avgDps > 0 && state.heightCm > 0 ? avgDps / (state.heightCm / 100) : null;
 
-  // Height-normalised DPS
-  const normCard = $('norm-dps-card');
-  if (poseAvailable && lengths.length > 0 && state.heightCm > 0) {
-    const validDps = lengths.filter(l => l.dps > 0);
-    if (validDps.length > 0) {
-      const avgDps  = validDps.reduce((s, l) => s + l.dps, 0) / validDps.length;
-      const normDps = (avgDps / (state.heightCm / 100)).toFixed(2);
-      $('info-norm-dps').textContent = normDps;
-      $('info-norm-dps-sub').textContent =
-        `${avgDps.toFixed(2)}m DPS ÷ ${(state.heightCm/100).toFixed(2)}m height — comparable across swimmers & growth`;
-      normCard.style.display = '';
-    } else { normCard.style.display = 'none'; }
-  } else { normCard.style.display = 'none'; }
+    $('rv-swolf').textContent = String(avgSwolf);
+    $('rv-dps').textContent   = avgDps > 0 ? `${avgDps.toFixed(1)}m` : '—';
+    $('rv-ndps').textContent  = normDps ? normDps.toFixed(2) : '—';
+    $('rv-rate').textContent  = avgRate > 0 ? `${avgRate}` : '—';
+    $('rv-speed-sub').textContent = speed ? `${speed.toFixed(2)} m/s` : '—';
+    metricsEl.style.display = 'grid';
+  } else if (poseAvailable && !isLap) {
+    $('rv-swolf').textContent = '—';
+    $('rv-dps').textContent   = '—';
+    $('rv-ndps').textContent  = '—';
+    $('rv-rate').textContent  = avgRate > 0 ? `${avgRate}` : '—';
+    $('rv-speed-sub').textContent = speed ? `${speed.toFixed(2)} m/s` : '—';
+    metricsEl.style.display = 'none';
+  } else {
+    metricsEl.style.display = 'none';
+  }
 
-  // Per-lap table
-  const lapSection = $('lap-table-section');
+  // ── Pacing analysis (lap mode, ≥ 4 lengths) ───────────────
+  const analysisEl = $('rv-analysis');
+  if (lengths.length >= 4) {
+    const durs  = lengths.map(l => l.dur);
+    const half  = Math.floor(durs.length / 2);
+    const first = durs.slice(0, half).reduce((a, b) => a + b, 0) / half;
+    const last  = durs.slice(-half).reduce((a, b) => a + b, 0) / half;
+    const diff  = last - first;
+    const cv    = _stddev(durs) / (durs.reduce((a,b)=>a+b,0)/durs.length) * 100;
+    const cvStr = cv < 3 ? 'Elite consistency' : cv < 6 ? 'Good consistency' : cv < 10 ? 'Moderate variation' : 'High variation';
+
+    let cls, icon, head, body;
+    if (diff < -1.0) {
+      cls = 'neg'; icon = '↗'; head = 'Negative split — getting stronger';
+      body = `Second half ${Math.abs(diff).toFixed(1)}s faster per length on average. ${cvStr} (CV ${cv.toFixed(1)}%).`;
+    } else if (diff > 1.0) {
+      cls = 'pos'; icon = '↘'; head = 'Positive split — fading in second half';
+      body = `Second half ${diff.toFixed(1)}s slower per length. ${cvStr} (CV ${cv.toFixed(1)}%). Try pacing more evenly from the start.`;
+    } else {
+      cls = 'even'; icon = '→'; head = 'Even splits — excellent control';
+      body = `Less than 1s difference between halves. ${cvStr} (CV ${cv.toFixed(1)}%).`;
+    }
+    analysisEl.className = cls;
+    analysisEl.style.display = 'flex';
+    $('rv-analysis-icon').textContent = icon;
+    $('rv-analysis-text').innerHTML =
+      `<span class="rv-analysis-head">${head}</span><br>${body}`;
+  } else {
+    analysisEl.style.display = 'none';
+  }
+
+  // ── Splits list ────────────────────────────────────────────
+  const splitsSection = $('rv-splits-section');
   if (lengths.length > 0) {
-    $('lap-table-body').innerHTML = lengths.map(l => `<tr>
-      <td>${l.length_number}</td>
-      <td>${l.duration_s.toFixed(1)}s</td>
-      <td>${l.strokes}</td>
-      <td>${l.pace_100m > 0 ? l.pace_100m.toFixed(0)+'s' : '—'}</td>
-      <td>${l.dps > 0 ? l.dps.toFixed(1)+'m' : '—'}</td>
-      <td>${l.swolf || '—'}</td>
-    </tr>`).join('');
-    lapSection.style.display = '';
-  } else { lapSection.style.display = 'none'; }
+    const durs = lengths.map(l => l.dur);
+    const minD = Math.min(...durs), maxD = Math.max(...durs);
 
-  // Pace + projection
-  const paceData    = computePace();
-  const projSection = $('proj-section');
-  if (paceData && poseAvailable) {
-    const p50 = projectTime(paceData.speed, 50);
-    const nT  = p50 ? p50.nTurns : 0;
-    $('info-pace').textContent  = `${paceData.pace.toFixed(0)}s / 100m`;
-    $('info-speed').textContent = `${paceData.speed.toFixed(2)} m/s`;
-    $('info-proj50').textContent = p50 ? fmtSecs(p50.proj) : '—';
-    $('info-proj-note').textContent =
-      `Raw pace × 50m = ${p50 ? fmtSecs(p50.raw) : '—'}. ` +
-      `Minus ${START_BONUS_S}s dive start + ${nT} turn${nT !== 1 ? 's' : ''} × ${TURN_BONUS_S}s each.`;
-    projSection.style.display = '';
-  } else { projSection.style.display = 'none'; }
+    $('rv-splits-title').textContent =
+      `Splits · ${lengths.length} × ${pool_m}m`;
 
-  // Endless chart
-  const endlessEl = $('endless-section');
-  if (poseAvailable && state.mode !== 'lap' && sc.windows.length > 0) {
-    endlessEl.style.display = '';
+    $('rv-splits-list').innerHTML = lengths.map(l => {
+      const accent = l.dur === minD ? 'fast' : l.dur === maxD ? 'slow' : 'mid';
+      const strokeLabel = `${STROKE_NAMES[state.stroke]?.slice(0,4).toLowerCase() || state.stroke}`;
+      const swolfTag = l.swolf ? ` · SWOLF ${l.swolf}` : '';
+      const dpsTag   = l.dps > 0 ? ` · ${l.dps.toFixed(1)}m DPS` : '';
+      return `
+        <div class="split-row">
+          <div class="split-accent ${accent}"></div>
+          <div class="split-left">
+            <div class="split-dist">${l.cumDist} ${strokeLabel}</div>
+            <div class="split-sub">${l.strokes} strokes${dpsTag}${swolfTag}</div>
+          </div>
+          <div class="split-right">
+            <div class="split-time">${fmtSplit(l.dur)}</div>
+            <div class="split-cumul">${fmtSplit(l.t1)}</div>
+          </div>
+        </div>`;
+    }).join('');
+    splitsSection.style.display = '';
+  } else {
+    splitsSection.style.display = 'none';
+  }
+
+  // ── Pace variation chart ───────────────────────────────────
+  const paceChart = $('rv-pace-chart');
+  if (lengths.length > 1) {
+    const durs = lengths.map(l => l.dur);
+    const maxD = Math.max(...durs, 0.1);
+    const minD = Math.min(...durs);
+    $('rv-pace-bars').innerHTML = lengths.map(l => {
+      const pct  = Math.round((l.dur / maxD) * 100);
+      const cls  = l.dur === minD ? 'fast' : l.dur === maxD ? 'slow' : '';
+      return `<div class="pbar-row">
+        <div class="pbar-lbl">${l.cumDist}m</div>
+        <div class="pbar-track"><div class="pbar-fill ${cls}" style="width:${pct}%"></div></div>
+        <div class="pbar-val">${fmtSplit(l.dur)}</div>
+      </div>`;
+    }).join('');
+    const dif = ((maxD - minD) / minD * 100).toFixed(0);
+    $('rv-consistency-note').textContent =
+      `Fastest: ${fmtSplit(minD)}  ·  Slowest: ${fmtSplit(maxD)}  ·  Range: ${dif}%`;
+    paceChart.style.display = '';
+  } else { paceChart.style.display = 'none'; }
+
+  // ── Endless rate chart ─────────────────────────────────────
+  const endlessChart = $('rv-endless-chart');
+  if (poseAvailable && !isLap && sc.windows.length > 0) {
     const maxRate = Math.max(...sc.windows.map(w => w.rate), 1);
-    $('endless-chart').innerHTML = sc.windows.map(w => `
-      <div class="win-row">
-        <div class="win-lbl">${Math.round(w.start)}s</div>
-        <div class="win-bar-wrap"><div class="win-bar" style="width:${Math.round((w.rate/maxRate)*100)}%"></div></div>
-        <div class="win-rate">${Math.round(w.rate)}/m</div>
-      </div>`).join('');
+    $('rv-rate-bars').innerHTML = sc.windows.map(w => {
+      const pct = Math.round((w.rate / maxRate) * 100);
+      return `<div class="pbar-row">
+        <div class="pbar-lbl">${Math.round(w.start)}s</div>
+        <div class="pbar-track"><div class="pbar-fill" style="width:${pct}%"></div></div>
+        <div class="pbar-val">${Math.round(w.rate)}/m</div>
+      </div>`;
+    }).join('');
     if (sc.windows.length >= 4) {
       const q  = Math.max(Math.floor(sc.windows.length / 4), 1);
       const fq = sc.windows.slice(0, q).reduce((s, w) => s + w.rate, 0) / q;
       const lq = sc.windows.slice(-q).reduce((s, w) => s + w.rate, 0) / q;
-      const dec = fq > 0 ? ((fq - lq) / fq * 100).toFixed(0) : 0;
-      $('decay-label').textContent = `Stroke rate decay: ${dec}% (first vs last quarter)`;
-    } else { $('decay-label').textContent = ''; }
-  } else { endlessEl.style.display = 'none'; }
+      const dec = fq > 0 ? ((fq - lq) / fq * 100).toFixed(0) : '0';
+      $('rv-decay-note').textContent = `Rate change first→last quarter: ${dec}%`;
+    } else { $('rv-decay-note').textContent = ''; }
+    endlessChart.style.display = '';
+  } else { endlessChart.style.display = 'none'; }
 
-  // Persist to localStorage
+  // ── File info ──────────────────────────────────────────────
+  $('rv-file-info').textContent = `${filename} · ${fmtSize(blob.size)}`;
+
+  // ── Persist ────────────────────────────────────────────────
   try {
     const sessions = JSON.parse(localStorage.getItem('swim_sessions') || '[]');
     sessions.unshift({
@@ -1430,22 +1574,29 @@ function onRecordingStopped() {
     localStorage.setItem('swim_sessions', JSON.stringify(sessions.slice(0, 100)));
   } catch {}
 
-  // Download
+  // ── Download / share ───────────────────────────────────────
   $('download-btn').onclick = () => {
     const a = document.createElement('a');
     a.href = state.recordedUrl; a.download = filename;
     document.body.appendChild(a); a.click(); a.remove();
   };
-
-  // Share (iOS)
   $('share-btn').style.display = 'none';
   if (navigator.canShare) {
     const file = new File([blob], filename, { type: mimeType });
     if (navigator.canShare({ files: [file] })) {
       $('share-btn').style.display = '';
-      $('share-btn').onclick = async () => { try { await navigator.share({ files: [file], title: filename }); } catch {} };
+      $('share-btn').onclick = async () => {
+        try { await navigator.share({ files: [file], title: filename }); } catch {}
+      };
     }
   }
+}
+
+function _goSetup() {
+  if (state.recordedUrl) { URL.revokeObjectURL(state.recordedUrl); state.recordedUrl = null; }
+  state.recordedBlob = null; state.chunks = [];
+  showScreen(setupDiv);
+  $('start-btn').disabled = false;
 }
 
 $('lap-btn').addEventListener('click', registerLap);
@@ -1453,12 +1604,10 @@ $('start-skip').addEventListener('click', () => onStartDetected('manual'));
 $('start-btn').addEventListener('click', startRecording);
 $('stop-btn').addEventListener('click', stopRecording);
 $('stop-btn-simple').addEventListener('click', stopRecording);
-$('again-btn').addEventListener('click', () => {
-  if (state.recordedUrl) { URL.revokeObjectURL(state.recordedUrl); state.recordedUrl = null; }
-  state.recordedBlob = null; state.chunks = [];
-  showScreen(setupDiv);
-  $('start-btn').disabled = false;
-});
+$('again-btn').addEventListener('click', _goSetup);
+$('rv-back').addEventListener('click', _goSetup);
+$('rv-header-hist').addEventListener('click', () => { renderHistory(); showScreen(historyDiv); });
+$('rv-hist-footer').addEventListener('click', () => { renderHistory(); showScreen(historyDiv); });
 
 // ─────────────────────────────────────────────
 // History
