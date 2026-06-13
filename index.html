@@ -1494,7 +1494,7 @@ function onRecordingStopped() {
 
     $('rv-splits-list').innerHTML = lengths.map(l => {
       const accent = l.dur === minD ? 'fast' : l.dur === maxD ? 'slow' : 'mid';
-      const strokeLabel = `${STROKE_NAMES[state.stroke]?.slice(0,4).toLowerCase() || state.stroke}`;
+      const strokeLabel = state.stroke;
       const swolfTag = l.swolf ? ` · SWOLF ${l.swolf}` : '';
       const dpsTag   = l.dps > 0 ? ` · ${l.dps.toFixed(1)}m DPS` : '';
       return `
@@ -1730,7 +1730,7 @@ function renderHistory() {
           return `<div class="win-row2">
             <div class="win-lbl2">${Math.round(w.start)}s</div>
             <div class="win-bar-wrap2"><div class="win-bar2" style="width:${pct}%"></div></div>
-            <div class="win-rate2">${Math.round(w.rate)}/m</div>
+            <div class="win-rate2">${Math.round(w.rate)}/min</div>
           </div>`;
         }).join('')}</div>`;
     }
