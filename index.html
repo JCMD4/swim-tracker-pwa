@@ -56,6 +56,10 @@
   #rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #f87171; animation: pulse 1.2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
   #timer { font-size: 48px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  #split-timer { display: none; font-size: 13px; opacity: 0.75; font-variant-numeric: tabular-nums;
+    letter-spacing: 0.3px; margin-top: 1px; }
+  #split-timer .split-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+    opacity: 0.7; margin-right: 4px; }
   #target-info { text-align: right; font-size: 13px; opacity: 0.85; line-height: 1.6; }
   #target-stroke { font-size: 13px; opacity: 0.75; }
   #lap-counter-hud { font-size: 22px; font-weight: 700; color: var(--orange); line-height: 1.2; }
@@ -68,7 +72,9 @@
     background: rgba(0,0,0,0.48); border-radius: 24px; padding: 22px 36px; min-width: 180px; }
   #live-count { font-size: 96px; font-weight: 800; line-height: 1;
     font-variant-numeric: tabular-nums; color: white; text-shadow: 0 2px 12px rgba(0,0,0,0.4); }
-  #live-label { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7; margin: 2px 0 6px; }
+  #live-label { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7; margin: 2px 0 4px; }
+  #live-total { font-size: 15px; font-variant-numeric: tabular-nums; opacity: 0.65;
+    margin-bottom: 6px; display: none; }
   #live-rate { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--orange); }
   #live-pace { font-size: 13px; opacity: 0.75; margin-top: 6px; line-height: 1.5; font-variant-numeric: tabular-nums; }
   #live-pace .pace-proj { color: var(--orange); font-weight: 700; font-size: 15px; }
@@ -80,13 +86,20 @@
 
   /* Bottom buttons */
   #bottom-btns { position: absolute; bottom: 0; left: 0; right: 0; z-index: 10; display: flex; flex-direction: column; }
-  #lap-btn { padding: 22px 16px; background: var(--teal); color: white; border: none;
-    font-size: 20px; font-weight: 700; text-transform: uppercase; cursor: pointer;
-    display: none; border-bottom: 1px solid rgba(255,255,255,0.12); letter-spacing: 0.5px; }
+  #stop-lap-row { display: none; flex-direction: row; border-bottom: 1px solid rgba(255,255,255,0.12); }
+  #lap-btn { flex: 0 0 auto; padding: 16px 24px; background: rgba(46,110,136,0.85);
+    color: white; border: none; border-right: 1px solid rgba(255,255,255,0.12);
+    font-size: 14px; font-weight: 700; text-transform: uppercase; cursor: pointer;
+    letter-spacing: 0.5px; white-space: nowrap; }
   #lap-btn:active { background: #1a4d66; }
-  #stop-btn { padding: 26px; padding-bottom: calc(26px + env(safe-area-inset-bottom, 0));
+  #lap-btn-label { font-size: 9px; display: block; opacity: 0.6; letter-spacing: 0.3px;
+    text-transform: uppercase; margin-top: 2px; font-weight: 400; }
+  #stop-btn { flex: 1; padding: 26px; padding-bottom: calc(26px + env(safe-area-inset-bottom, 0));
     background: var(--orange); color: white; border: none; font-size: 21px;
     font-weight: 700; text-transform: uppercase; cursor: pointer; }
+  #stop-btn-simple { width: 100%; padding: 26px; padding-bottom: calc(26px + env(safe-area-inset-bottom, 0));
+    background: var(--orange); color: white; border: none; font-size: 21px;
+    font-weight: 700; text-transform: uppercase; cursor: pointer; display: none; }
 
   /* Lap flash */
   #lap-flash { position: absolute; top: 36%; left: 50%; transform: translate(-50%, -50%);
@@ -291,11 +304,18 @@
   </div>
 
   <div class="row">
-    <label>Pool / Mode</label>
+    <label>Pool size</label>
+    <div class="pill-group" id="pool-group">
+      <div class="pill active" data-value="25">25m</div>
+      <div class="pill" data-value="50">50m</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <label>Mode</label>
     <div class="pill-group" id="mode-group">
       <div class="pill active" data-value="endless">Endless / Timed</div>
-      <div class="pill" data-value="lap_25">25m lap</div>
-      <div class="pill" data-value="lap_50">50m lap</div>
+      <div class="pill" data-value="lap">Lap counting</div>
     </div>
   </div>
 
@@ -357,6 +377,7 @@
     <div id="timer-block">
       <div id="rec-status"><div id="rec-dot"></div><span>REC</span></div>
       <div id="timer">00:00</div>
+      <div id="split-timer"><span class="split-lbl">50m split</span><span id="split-time">0:00</span></div>
     </div>
     <div id="target-info">
       <div id="target-stroke">free · endless</div>
@@ -370,6 +391,7 @@
   <div id="stroke-center">
     <div id="live-count">0</div>
     <div id="live-label">Strokes</div>
+    <div id="live-total">Total: 0</div>
     <div id="live-rate">—</div>
     <div id="live-pace"></div>
     <div id="pose-indicator">
@@ -398,10 +420,13 @@
     </div>
   </div>
 
-  <!-- Bottom buttons: LAP (lap modes only) + STOP -->
+  <!-- Bottom buttons: STOP always shown; LAP override row shown in lap mode only -->
   <div id="bottom-btns">
-    <button id="lap-btn">✓ &nbsp;Lap</button>
-    <button id="stop-btn">Stop &amp; Save</button>
+    <div id="stop-lap-row">
+      <button id="lap-btn">✓ Lap<span id="lap-btn-label">manual override</span></button>
+      <button id="stop-btn">Stop &amp; Save</button>
+    </div>
+    <button id="stop-btn-simple">Stop &amp; Save</button>
   </div>
 </div>
 
@@ -565,7 +590,7 @@ function saveProfile(name, data) {
 // ─────────────────────────────────────────────
 const state = {
   swimmer: 'Marc', heightCm: 175,
-  stroke: 'free', mode: 'endless',
+  stroke: 'free', poolSize: 25, mode: 'endless',
   targetDuration: 90, cameraFacing: 'environment',
   startDetectMode: 'auto',
   startedAt: null, startTime: 0,
@@ -586,6 +611,7 @@ function setupPills(groupId, key, parser = v => v) {
   });
 }
 setupPills('stroke-group', 'stroke');
+setupPills('pool-group', 'poolSize', parseInt);
 setupPills('mode-group', 'mode');
 setupPills('duration-group', 'targetDuration', parseInt);
 setupPills('camera-group', 'cameraFacing');
@@ -715,20 +741,22 @@ function drawLaneBand(tapXNorm) {
 }
 
 let sc = {
-  totalStrokes: 0, strokeTimes: [], lapTimes: [0],
+  totalStrokes: 0, lengthStrokes: 0, strokeTimes: [], lapTimes: [0],
   poseGapStart: null, lastPoseElapsed: 0,
   ema: { l: null, r: null },
   hyst: { l:{phase:'low',last:0}, r:{phase:'low',last:0}, sym:{phase:'low',last:0} },
   windows: [], winStart: 0, winStrokes: 0,
+  splitStart: 0,
   poseOn: false, lastPoseMs: 0, animId: null,
 };
 
 function resetSC() {
-  sc.totalStrokes = 0; sc.strokeTimes = []; sc.lapTimes = [0];
+  sc.totalStrokes = 0; sc.lengthStrokes = 0; sc.strokeTimes = []; sc.lapTimes = [0];
   sc.poseGapStart = null; sc.lastPoseElapsed = 0;
   sc.ema = { l: null, r: null };
   sc.hyst = { l:{phase:'low',last:0}, r:{phase:'low',last:0}, sym:{phase:'low',last:0} };
   sc.windows = []; sc.winStart = 0; sc.winStrokes = 0;
+  sc.splitStart = 0;
   sc.poseOn = false; sc.lastPoseMs = 0; sc.animId = null;
   state.laneBand = null; state.tracker = null; state.selecting = true;
 }
@@ -751,13 +779,13 @@ function processLandmarks(lm, nowMs) {
   sc.ema.r = ema(sc.ema.r, rh);
   if (state.stroke === 'free' || state.stroke === 'back') {
     if (hysteresisCheck(sc.hyst.l, sc.ema.l, nowMs, FREE_BACK_HIGH, FREE_BACK_LOW, FREE_BACK_MIN_MS))
-      { sc.totalStrokes++; sc.strokeTimes.push(nowMs); sc.winStrokes++; }
+      { sc.totalStrokes++; sc.lengthStrokes++; sc.strokeTimes.push(nowMs); sc.winStrokes++; }
     if (hysteresisCheck(sc.hyst.r, sc.ema.r, nowMs, FREE_BACK_HIGH, FREE_BACK_LOW, FREE_BACK_MIN_MS))
-      { sc.totalStrokes++; sc.strokeTimes.push(nowMs); sc.winStrokes++; }
+      { sc.totalStrokes++; sc.lengthStrokes++; sc.strokeTimes.push(nowMs); sc.winStrokes++; }
   } else {
     const sym = (sc.ema.l + sc.ema.r) / 2;
     if (hysteresisCheck(sc.hyst.sym, sym, nowMs, BREAST_FLY_HIGH, BREAST_FLY_LOW, BREAST_FLY_MIN_MS))
-      { sc.totalStrokes++; sc.strokeTimes.push(nowMs); sc.winStrokes++; }
+      { sc.totalStrokes++; sc.lengthStrokes++; sc.strokeTimes.push(nowMs); sc.winStrokes++; }
   }
 }
 
@@ -767,7 +795,7 @@ function processLandmarks(lm, nowMs) {
 const START_BONUS_S = 4.0;
 const TURN_BONUS_S  = 2.0;
 
-function getPoolM() { return state.mode === 'lap_50' ? 50 : 25; }
+function getPoolM() { return state.poolSize; }
 
 function cleanLapDurations() {
   const times = sc.lapTimes;
@@ -897,13 +925,14 @@ function onStartDetected(method) {
   preRaceStrokes = sc.totalStrokes;
 
   // Reset stroke counter at GO
-  sc.totalStrokes = 0;
+  sc.totalStrokes = 0; sc.lengthStrokes = 0;
   sc.strokeTimes  = [];
   sc.lapTimes     = [0];
   sc.ema          = { l: null, r: null };
   sc.hyst         = { l:{phase:'low',last:raceStartTime}, r:{phase:'low',last:raceStartTime},
                       sym:{phase:'low',last:raceStartTime} };
   sc.windows      = []; sc.winStart = 0; sc.winStrokes = 0;
+  sc.splitStart   = 0;
 
   $('start-overlay').style.display = 'none';
 
@@ -941,18 +970,35 @@ function initStartDetection() {
 }
 
 // ─────────────────────────────────────────────
+// Wall touch helpers (length reset + 50m split)
+// ─────────────────────────────────────────────
+function _lengthsPerFifty() {
+  return Math.round(50 / state.poolSize);   // 2 for 25m, 1 for 50m
+}
+
+function _onWallTouch(raceT) {
+  // Called whenever a wall touch is logged (auto or manual).
+  sc.lengthStrokes = 0;
+  const lapCount = sc.lapTimes.length - 1;  // count after push
+  if (lapCount % _lengthsPerFifty() === 0) {
+    sc.splitStart = raceT;
+  }
+  updateLapHUD();
+}
+
+// ─────────────────────────────────────────────
 // Manual lap tap
 // ─────────────────────────────────────────────
 function registerLap() {
-  const elapsed = (performance.now() - state.startTime) / 1000;
+  const nowMs   = performance.now();
+  const elapsed = (nowMs - state.startTime) / 1000;
+  const raceT   = raceStartTime ? (nowMs - raceStartTime) / 1000 : elapsed;
   const lastLap = sc.lapTimes[sc.lapTimes.length - 1];
-  const minGap = state.mode === 'lap_50' ? 10 : 5;
-  if (elapsed - lastLap < minGap) return;
-  sc.lapTimes.push(parseFloat(elapsed.toFixed(2)));
-  // Haptic feedback (iOS)
+  const minGap  = state.poolSize === 50 ? 10 : 5;
+  if (raceT - lastLap < minGap) return;
+  sc.lapTimes.push(parseFloat(raceT.toFixed(2)));
   try { if (navigator.vibrate) navigator.vibrate(40); } catch {}
-  // Flash animation
-  const flash = $('lap-flash');
+  const flash  = $('lap-flash');
   const lapNum = sc.lapTimes.length - 1;
   flash.textContent = `Lap ${lapNum} ✓`;
   flash.style.display = '';
@@ -960,13 +1006,13 @@ function registerLap() {
   void flash.offsetHeight;
   flash.style.animation = 'lap-pop 0.9s forwards';
   setTimeout(() => { flash.style.display = 'none'; }, 900);
-  updateLapHUD();
+  _onWallTouch(raceT);
 }
 
 function updateLapHUD() {
-  if (state.mode === 'endless') { $('lap-counter-hud').textContent = ''; $('lap-pace-hud').textContent = ''; return; }
+  if (state.mode !== 'lap') { $('lap-counter-hud').textContent = ''; $('lap-pace-hud').textContent = ''; return; }
   const lapNum = sc.lapTimes.length - 1;
-  $('lap-counter-hud').textContent = `Lap ${lapNum + 1}`;
+  $('lap-counter-hud').textContent = `Length ${lapNum + 1}`;
   const durs = cleanLapDurations();
   if (durs.length > 0) {
     const last = durs[durs.length - 1];
@@ -1007,15 +1053,14 @@ function poseLoop() {
             onStartDetected('dive');
           }
           // Lap wall-touch detection (only once race has started or start detect is off)
-          if (!startDetectionActive) {
-            const minLapS = state.mode === 'lap_50' ? 10 : 5;
+          if (!startDetectionActive && state.mode === 'lap') {
+            const minLapS = state.poolSize === 50 ? 10 : 5;
             if (gapDur >= 0.4 && gapDur <= 5.0) {
-              const raceElapsed = raceStartTime ? (nowMs - raceStartTime) / 1000 : elapsed;
               const touchT = raceElapsed - gapDur / 2;
               const lastLap = sc.lapTimes[sc.lapTimes.length - 1];
               if (touchT - lastLap >= minLapS) {
                 sc.lapTimes.push(parseFloat(touchT.toFixed(2)));
-                updateLapHUD();
+                _onWallTouch(touchT);
               }
             }
           }
@@ -1033,10 +1078,33 @@ function poseLoop() {
 
   // Display race time (from GO) or recording time
   const displayElapsed = raceStartTime ? (nowMs - raceStartTime) / 1000 : elapsed;
-  $('live-count').textContent = sc.totalStrokes;
+
+  // Stroke display: lap mode → big=length, small=total; endless → big=total only
+  const isLapMode = state.mode === 'lap';
+  if (isLapMode) {
+    $('live-count').textContent = sc.lengthStrokes;
+    $('live-label').textContent = `This ${state.poolSize}m`;
+    $('live-total').textContent = `Total: ${sc.totalStrokes}`;
+    $('live-total').style.display = '';
+  } else {
+    $('live-count').textContent = sc.totalStrokes;
+    $('live-label').textContent = 'Strokes';
+    $('live-total').style.display = 'none';
+  }
+
   const rate = rollingRate(nowMs);
   $('live-rate').textContent = rate > 0 ? `${rate}/min` : '—';
   $('timer').textContent = startDetectionActive ? '-- : --' : fmtTime(displayElapsed);
+
+  // 50m split timer
+  const splitEl = $('split-timer');
+  if (isLapMode && !startDetectionActive) {
+    const splitSec = raceElapsed - sc.splitStart;
+    $('split-time').textContent = fmtTime(splitSec);
+    splitEl.style.display = '';
+  } else {
+    splitEl.style.display = 'none';
+  }
 
   const paceData = computePace();
   if (paceData) {
@@ -1117,12 +1185,17 @@ async function startRecording() {
 
   showScreen(recordingDiv);
 
-  const isLap = state.mode !== 'endless';
-  $('target-stroke').textContent = `${state.stroke} · ${state.mode.replace('_', ' ')}`;
+  const isLap = state.mode === 'lap';
+  $('target-stroke').textContent = `${state.stroke} · ${state.poolSize}m ${state.mode}`;
   $('target-time').textContent = state.targetDuration > 0 ? `/ ${fmtTime(state.targetDuration)}` : 'no limit';
-  $('lap-counter-hud').textContent = isLap ? 'Lap 1' : '';
+  $('lap-counter-hud').textContent = isLap ? 'Length 1' : '';
   $('lap-pace-hud').textContent = '';
-  $('lap-btn').style.display = isLap ? '' : 'none';
+  // Lap mode: show the row with LAP override + Stop; endless: show simple Stop only
+  $('stop-lap-row').style.display  = isLap ? 'flex' : 'none';
+  $('stop-btn-simple').style.display = isLap ? 'none' : '';
+  $('split-timer').style.display = 'none';
+  $('live-total').style.display = 'none';
+  $('live-label').textContent = isLap ? `This ${state.poolSize}m` : 'Strokes';
 
   $('live-count').textContent = '0';
   $('live-rate').textContent = '—';
@@ -1207,7 +1280,7 @@ function buildFilename(ext) {
   const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const safe = state.swimmer.replace(/[^A-Za-z0-9]/g, '_');
   const dur  = state.targetDuration > 0 ? `${state.targetDuration}s` : 'manual';
-  return `${safe}_${state.stroke}_${state.mode}_${dur}_${ts}.${ext}`;
+  return `${safe}_${state.stroke}_${state.poolSize}m_${state.mode}_${dur}_${ts}.${ext}`;
 }
 
 function onRecordingStopped() {
@@ -1250,7 +1323,7 @@ function onRecordingStopped() {
 
   // Build per-lap metrics
   let lengths = [];
-  if (state.mode !== 'endless' && sc.lapTimes.length > 1) {
+  if (state.mode === 'lap' && sc.lapTimes.length > 1) {
     for (let i = 0; i < sc.lapTimes.length - 1; i++) {
       const t0 = sc.lapTimes[i], t1 = sc.lapTimes[i+1];
       const dur = t1 - t0;
@@ -1325,7 +1398,7 @@ function onRecordingStopped() {
 
   // Endless chart
   const endlessEl = $('endless-section');
-  if (poseAvailable && state.mode === 'endless' && sc.windows.length > 0) {
+  if (poseAvailable && state.mode !== 'lap' && sc.windows.length > 0) {
     endlessEl.style.display = '';
     const maxRate = Math.max(...sc.windows.map(w => w.rate), 1);
     $('endless-chart').innerHTML = sc.windows.map(w => `
@@ -1348,7 +1421,7 @@ function onRecordingStopped() {
     const sessions = JSON.parse(localStorage.getItem('swim_sessions') || '[]');
     sessions.unshift({
       id: Date.now(), swimmer: state.swimmer, heightCm: state.heightCm,
-      stroke: state.stroke, mode: state.mode, pool_m,
+      stroke: state.stroke, mode: state.mode, poolSize: state.poolSize, pool_m,
       durationS: Math.round(elapsedSec),
       strokes: sc.totalStrokes, avgRate, filename,
       lengths, windows: sc.windows.map(w => ({ ...w })),
@@ -1379,6 +1452,7 @@ $('lap-btn').addEventListener('click', registerLap);
 $('start-skip').addEventListener('click', () => onStartDetected('manual'));
 $('start-btn').addEventListener('click', startRecording);
 $('stop-btn').addEventListener('click', stopRecording);
+$('stop-btn-simple').addEventListener('click', stopRecording);
 $('again-btn').addEventListener('click', () => {
   if (state.recordedUrl) { URL.revokeObjectURL(state.recordedUrl); state.recordedUrl = null; }
   state.recordedBlob = null; state.chunks = [];
@@ -1478,7 +1552,8 @@ function renderHistory() {
     card.className = 'sess-card';
     const icon  = STROKE_ICON[s.stroke] || '🏊';
     const label = STROKE_LABEL[s.stroke] || s.stroke;
-    const modeStr = s.mode === 'endless' ? 'Endless' : s.mode === 'lap_25' ? '25m lap' : '50m lap';
+    const modeStr = s.mode === 'endless' ? 'Endless' : s.mode === 'lap'
+      ? `${s.poolSize || s.pool_m || '?'}m lap` : s.mode;
 
     let bodyHtml = '';
     if (s.lengths && s.lengths.length > 0) {
