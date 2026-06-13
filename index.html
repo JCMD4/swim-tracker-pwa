@@ -224,6 +224,41 @@
   #history-link { background: none; border: none; color: rgba(255,255,255,0.55);
     font-size: 14px; text-align: center; padding: 4px; cursor: pointer;
     text-decoration: underline; align-self: center; }
+
+  /* ── Start detection overlay ── */
+  #start-overlay { position: absolute; inset: 0; z-index: 25;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.70); backdrop-filter: blur(2px); }
+  #start-overlay-inner { background: rgba(20,50,70,0.96); border-radius: 20px;
+    padding: 32px 28px; text-align: center; max-width: 290px;
+    border: 1.5px solid rgba(255,255,255,0.15); }
+  #start-msg { font-size: 26px; font-weight: 800; letter-spacing: 0.3px;
+    margin-bottom: 20px; color: white; }
+  #mic-bar-wrap { margin: 0 0 18px; }
+  #mic-bar-track { height: 10px; background: rgba(255,255,255,0.12);
+    border-radius: 999px; overflow: hidden; margin-bottom: 8px; }
+  #mic-bar-fill { height: 100%; width: 0%; background: var(--orange);
+    border-radius: 999px; transition: width 0.05s linear; }
+  #mic-label { font-size: 12px; opacity: 0.6; letter-spacing: 0.3px; }
+  #start-dive-hint { font-size: 13px; opacity: 0.65; margin-bottom: 18px; }
+  #start-skip { padding: 14px 28px; background: rgba(255,255,255,0.12);
+    color: white; border: 1.5px solid rgba(255,255,255,0.25);
+    border-radius: 999px; font-size: 15px; font-weight: 600; cursor: pointer;
+    margin-top: 4px; }
+  #start-skip:active { background: rgba(255,255,255,0.22); }
+  #start-countdown { font-size: 13px; opacity: 0.55; margin-top: 12px; }
+
+  /* ── GO! flash ── */
+  #go-flash { position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 88px; font-weight: 900; color: var(--green);
+    text-shadow: 0 0 50px rgba(74,222,128,0.7); pointer-events: none;
+    display: none; z-index: 26; letter-spacing: -2px; }
+  @keyframes go-pop {
+    0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.6); }
+    30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    70%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -70%) scale(1.2); }
+  }
 </style>
 </head>
 <body>
@@ -284,6 +319,16 @@
     </div>
   </div>
 
+  <div class="row">
+    <label>Start detection</label>
+    <div class="pill-group" id="start-group">
+      <div class="pill active" data-value="auto">Auto</div>
+      <div class="pill" data-value="audio">Audio only</div>
+      <div class="pill" data-value="dive">Dive only</div>
+      <div class="pill" data-value="off">Off</div>
+    </div>
+  </div>
+
   <button id="start-btn">Start recording</button>
   <div id="model-status">Loading AI model…</div>
   <div id="setup-error"></div>
@@ -335,6 +380,23 @@
 
   <!-- Lap flash -->
   <div id="lap-flash"></div>
+
+  <!-- GO! flash (race start) -->
+  <div id="go-flash">GO!</div>
+
+  <!-- Start detection overlay -->
+  <div id="start-overlay" style="display:none">
+    <div id="start-overlay-inner">
+      <div id="start-msg">Waiting for GO...</div>
+      <div id="mic-bar-wrap" style="display:none">
+        <div id="mic-bar-track"><div id="mic-bar-fill"></div></div>
+        <div id="mic-label">Listening for start beep...</div>
+      </div>
+      <div id="start-dive-hint" style="display:none">Watching for dive entry...</div>
+      <button id="start-skip">Start now</button>
+      <div id="start-countdown"></div>
+    </div>
+  </div>
 
   <!-- Bottom buttons: LAP (lap modes only) + STOP -->
   <div id="bottom-btns">
@@ -505,6 +567,7 @@ const state = {
   swimmer: 'Marc', heightCm: 175,
   stroke: 'free', mode: 'endless',
   targetDuration: 90, cameraFacing: 'environment',
+  startDetectMode: 'auto',
   startedAt: null, startTime: 0,
   videoStream: null, mediaRecorder: null,
   chunks: [], autoStopTimer: null,
@@ -526,6 +589,7 @@ setupPills('stroke-group', 'stroke');
 setupPills('mode-group', 'mode');
 setupPills('duration-group', 'targetDuration', parseInt);
 setupPills('camera-group', 'cameraFacing');
+setupPills('start-group', 'startDetectMode');
 
 $('swimmer-name').addEventListener('input', e => {
   state.swimmer = (e.target.value || 'Swimmer').trim();
@@ -738,8 +802,142 @@ function fmtSecs(s) {
 function rollingRate(nowMs) {
   const cutoffMs = nowMs - 30000;
   const recent = sc.strokeTimes.filter(t => t >= cutoffMs);
-  const windowMs = Math.min(nowMs - state.startTime, 30000);
+  const origin = raceStartTime || state.startTime;
+  const windowMs = Math.min(nowMs - origin, 30000);
   return windowMs > 2000 ? Math.round((recent.length / windowMs) * 60000) : 0;
+}
+
+// ─────────────────────────────────────────────
+// Start detection
+// ─────────────────────────────────────────────
+let startDetectionActive = false;
+let startDetected = false;
+let raceStartTime  = null;   // performance.now() when GO fires
+let preRaceStrokes = 0;
+
+// Microphone / audio onset detection
+let _micStream = null, _audioCtx = null, _micAnalyser = null, _micSrc = null;
+let _micInterval = null;
+const _rmsHistory = [];
+const _MIC_HISTORY = 40;   // 2 s at 50 ms hop
+
+function _getRMS() {
+  if (!_micAnalyser) return 0;
+  const buf = new Float32Array(_micAnalyser.fftSize);
+  _micAnalyser.getFloatTimeDomainData(buf);
+  let s = 0;
+  for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+  return Math.sqrt(s / buf.length);
+}
+
+function _checkAudioOnset() {
+  if (!startDetectionActive || startDetected) return;
+  const rms = _getRMS();
+  _rmsHistory.push(rms);
+  if (_rmsHistory.length > _MIC_HISTORY) _rmsHistory.shift();
+
+  // Update level bar
+  $('mic-bar-fill').style.width = Math.min(rms * 900, 100) + '%';
+
+  // Onset: current RMS > 4× 75th-percentile of preceding 2 s
+  if (_rmsHistory.length >= 8) {
+    const sorted = [..._rmsHistory.slice(0, -1)].sort((a, b) => a - b);
+    const p75 = sorted[Math.floor(sorted.length * 0.75)];
+    if (p75 > 0.0008 && rms > p75 * 4.0) {
+      onStartDetected('audio');
+    }
+  }
+}
+
+async function startAudioDetect() {
+  try {
+    _micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    _audioCtx   = new AudioContext();
+    _micAnalyser = _audioCtx.createAnalyser();
+    _micAnalyser.fftSize = 2048;
+
+    const filter = _audioCtx.createBiquadFilter();
+    filter.type      = 'bandpass';
+    filter.frequency.value = 1150;   // geometric centre of 300–3 000 Hz
+    filter.Q.value   = 0.45;
+
+    _micSrc = _audioCtx.createMediaStreamSource(_micStream);
+    _micSrc.connect(filter);
+    filter.connect(_micAnalyser);
+
+    $('mic-bar-wrap').style.display = '';
+    _micInterval = setInterval(_checkAudioOnset, 50);
+  } catch (err) {
+    // Permission denied or no mic — fall through to dive-only
+    console.warn('[start] Mic unavailable:', err.message);
+    $('start-dive-hint').style.display = '';
+    if (state.startDetectMode === 'audio') {
+      // No mic and audio-only requested — auto-start after 3 s warning
+      $('start-countdown').textContent = 'Microphone unavailable — starting in 3 s';
+      setTimeout(() => onStartDetected('fallback'), 3000);
+    }
+  }
+}
+
+function stopAudioDetect() {
+  if (_micInterval) { clearInterval(_micInterval); _micInterval = null; }
+  if (_micSrc) { try { _micSrc.disconnect(); } catch {} _micSrc = null; }
+  if (_audioCtx) { _audioCtx.close().catch(() => {}); _audioCtx = null; }
+  if (_micStream) { _micStream.getTracks().forEach(t => t.stop()); _micStream = null; }
+  _rmsHistory.length = 0;
+}
+
+function onStartDetected(method) {
+  if (startDetected) return;
+  startDetected = true;
+  startDetectionActive = false;
+  stopAudioDetect();
+
+  raceStartTime = performance.now();
+  preRaceStrokes = sc.totalStrokes;
+
+  // Reset stroke counter at GO
+  sc.totalStrokes = 0;
+  sc.strokeTimes  = [];
+  sc.lapTimes     = [0];
+  sc.ema          = { l: null, r: null };
+  sc.hyst         = { l:{phase:'low',last:raceStartTime}, r:{phase:'low',last:raceStartTime},
+                      sym:{phase:'low',last:raceStartTime} };
+  sc.windows      = []; sc.winStart = 0; sc.winStrokes = 0;
+
+  $('start-overlay').style.display = 'none';
+
+  const flash = $('go-flash');
+  flash.style.display = '';
+  flash.style.animation = 'none';
+  void flash.offsetHeight;
+  flash.style.animation = 'go-pop 1.1s forwards';
+  try { if (navigator.vibrate) navigator.vibrate([60, 40, 120]); } catch {}
+  setTimeout(() => { flash.style.display = 'none'; }, 1100);
+}
+
+function initStartDetection() {
+  const mode = state.startDetectMode;
+  if (mode === 'off') return;
+
+  startDetectionActive = true;
+  startDetected        = false;
+  raceStartTime        = null;
+
+  $('start-overlay').style.display = 'flex';
+  $('mic-bar-wrap').style.display  = 'none';
+  $('start-dive-hint').style.display = 'none';
+  $('start-countdown').textContent = '';
+
+  if (mode === 'dive') {
+    $('start-dive-hint').style.display = '';
+  } else if (mode === 'audio') {
+    startAudioDetect();
+  } else {
+    // auto: try audio + dive simultaneously
+    startAudioDetect();
+    $('start-dive-hint').style.display = '';
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -781,14 +979,16 @@ function updateLapHUD() {
 // ─────────────────────────────────────────────
 function poseLoop() {
   if (!state.isRecording) return;
-  const nowMs = performance.now();
+  const nowMs   = performance.now();
   const elapsed = (nowMs - state.startTime) / 1000;
+  // raceElapsed: time since GO (or since recording start if no start detection)
+  const raceElapsed = raceStartTime ? (nowMs - raceStartTime) / 1000 : elapsed;
 
-  if (elapsed - sc.winStart >= WINDOW_S) {
-    const dur = elapsed - sc.winStart;
-    sc.windows.push({ start: sc.winStart, end: elapsed,
+  if (!startDetectionActive && raceElapsed - sc.winStart >= WINDOW_S) {
+    const dur = raceElapsed - sc.winStart;
+    sc.windows.push({ start: sc.winStart, end: raceElapsed,
       strokes: sc.winStrokes, rate: dur > 0 ? (sc.winStrokes / dur) * 60 : 0 });
-    sc.winStart = elapsed; sc.winStrokes = 0;
+    sc.winStart = raceElapsed; sc.winStrokes = 0;
   }
 
   if (poseLandmarker && nowMs - sc.lastPoseMs >= POSE_INTERVAL_MS && video.readyState >= 2) {
@@ -800,31 +1000,43 @@ function poseLoop() {
         sc.poseOn = true;
         if (sc.poseGapStart !== null) {
           const gapDur = elapsed - sc.poseGapStart;
-          const minLapS = state.mode === 'lap_50' ? 10 : 5;
-          if (gapDur >= 0.4 && gapDur <= 5.0) {
-            const touchT = sc.poseGapStart + gapDur / 2;
-            const lastLap = sc.lapTimes[sc.lapTimes.length - 1];
-            if (touchT - lastLap >= minLapS) {
-              sc.lapTimes.push(parseFloat(touchT.toFixed(2)));
-              updateLapHUD();
+          // Dive start detection: gap at very beginning of recording
+          if (startDetectionActive &&
+              (state.startDetectMode === 'dive' || state.startDetectMode === 'auto') &&
+              gapDur >= 0.3 && gapDur <= 8.0) {
+            onStartDetected('dive');
+          }
+          // Lap wall-touch detection (only once race has started or start detect is off)
+          if (!startDetectionActive) {
+            const minLapS = state.mode === 'lap_50' ? 10 : 5;
+            if (gapDur >= 0.4 && gapDur <= 5.0) {
+              const raceElapsed = raceStartTime ? (nowMs - raceStartTime) / 1000 : elapsed;
+              const touchT = raceElapsed - gapDur / 2;
+              const lastLap = sc.lapTimes[sc.lapTimes.length - 1];
+              if (touchT - lastLap >= minLapS) {
+                sc.lapTimes.push(parseFloat(touchT.toFixed(2)));
+                updateLapHUD();
+              }
             }
           }
           sc.poseGapStart = null;
         }
         sc.lastPoseElapsed = elapsed;
-        if (!state.selecting) processLandmarks(lm, nowMs);
+        if (!state.selecting && !startDetectionActive) processLandmarks(lm, nowMs);
       } else {
         if (state.tracker) state.tracker.miss();
         sc.poseOn = false;
-        if (sc.poseGapStart === null && elapsed > 1) sc.poseGapStart = elapsed;
+        if (sc.poseGapStart === null && elapsed > 0.5) sc.poseGapStart = elapsed;
       }
     } catch { sc.poseOn = false; }
   }
 
+  // Display race time (from GO) or recording time
+  const displayElapsed = raceStartTime ? (nowMs - raceStartTime) / 1000 : elapsed;
   $('live-count').textContent = sc.totalStrokes;
   const rate = rollingRate(nowMs);
   $('live-rate').textContent = rate > 0 ? `${rate}/min` : '—';
-  $('timer').textContent = fmtTime(elapsed);
+  $('timer').textContent = startDetectionActive ? '-- : --' : fmtTime(displayElapsed);
 
   const paceData = computePace();
   if (paceData) {
@@ -894,6 +1106,10 @@ async function startRecording() {
   saveProfile(state.swimmer, { heightCm: state.heightCm });
 
   resetSC();
+  startDetectionActive = false;
+  startDetected        = false;
+  raceStartTime        = null;
+  preRaceStrokes       = 0;
   state.startTime = performance.now();
   state.startedAt = new Date().toISOString();
   state.isRecording = true;
@@ -965,14 +1181,22 @@ async function startRecording() {
   sc.animId = requestAnimationFrame(poseLoop);
   if (state.targetDuration > 0)
     state.autoStopTimer = setTimeout(stopRecording, state.targetDuration * 1000);
+
+  // Start detection: initialise after a short delay so the camera/audio settle
+  if (state.startDetectMode !== 'off') {
+    setTimeout(initStartDetection, 400);
+  }
 }
 
 function stopRecording() {
   if (state.autoStopTimer) { clearTimeout(state.autoStopTimer); state.autoStopTimer = null; }
   state.isRecording = false;
+  startDetectionActive = false;
+  stopAudioDetect();
   if (sc.animId) { cancelAnimationFrame(sc.animId); sc.animId = null; }
   state.wakeLock?.release().catch(() => {});
   $('select-overlay').style.display = 'none';
+  $('start-overlay').style.display = 'none';
   const finalElapsed = (performance.now() - state.startTime) / 1000;
   sc.lapTimes.push(parseFloat(finalElapsed.toFixed(2)));
   if (state.mediaRecorder?.state !== 'inactive') state.mediaRecorder.stop();
@@ -988,7 +1212,9 @@ function buildFilename(ext) {
 
 function onRecordingStopped() {
   if (state.videoStream) { state.videoStream.getTracks().forEach(t => t.stop()); state.videoStream = null; }
-  const elapsedSec = (performance.now() - state.startTime) / 1000;
+  const nowMs = performance.now();
+  // Use race time if start was detected, else total recording time
+  const elapsedSec = raceStartTime ? (nowMs - raceStartTime) / 1000 : (nowMs - state.startTime) / 1000;
 
   if (sc.winStrokes > 0 || sc.windows.length === 0) {
     const dur = elapsedSec - sc.winStart;
@@ -1150,6 +1376,7 @@ function onRecordingStopped() {
 }
 
 $('lap-btn').addEventListener('click', registerLap);
+$('start-skip').addEventListener('click', () => onStartDetected('manual'));
 $('start-btn').addEventListener('click', startRecording);
 $('stop-btn').addEventListener('click', stopRecording);
 $('again-btn').addEventListener('click', () => {
