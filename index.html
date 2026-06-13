@@ -1328,8 +1328,9 @@ function stopRecording() {
   state.wakeLock?.release().catch(() => {});
   $('select-overlay').style.display = 'none';
   $('start-overlay').style.display = 'none';
-  const finalElapsed = (performance.now() - state.startTime) / 1000;
-  sc.lapTimes.push(parseFloat(finalElapsed.toFixed(2)));
+  const _nowStop = performance.now();
+  const finalT = raceStartTime ? (_nowStop - raceStartTime) / 1000 : (_nowStop - state.startTime) / 1000;
+  sc.lapTimes.push(parseFloat(finalT.toFixed(2)));
   if (state.mediaRecorder?.state !== 'inactive') state.mediaRecorder.stop();
   else onRecordingStopped();
 }
@@ -1544,7 +1545,7 @@ function onRecordingStopped() {
       return `<div class="pbar-row">
         <div class="pbar-lbl">${Math.round(w.start)}s</div>
         <div class="pbar-track"><div class="pbar-fill" style="width:${pct}%"></div></div>
-        <div class="pbar-val">${Math.round(w.rate)}/m</div>
+        <div class="pbar-val">${Math.round(w.rate)}/min</div>
       </div>`;
     }).join('');
     if (sc.windows.length >= 4) {
@@ -1708,14 +1709,19 @@ function renderHistory() {
     if (s.lengths && s.lengths.length > 0) {
       bodyHtml += `<table class="sess-table">
         <thead><tr><th>#</th><th>Time</th><th>Strokes</th><th>Pace</th><th>DPS</th><th>SWOLF</th></tr></thead>
-        <tbody>${s.lengths.map(l => `<tr>
-          <td>${l.length_number}</td>
-          <td>${l.duration_s.toFixed(1)}s</td>
-          <td>${l.strokes}</td>
-          <td>${l.pace_100m ? l.pace_100m.toFixed(0)+'s' : '—'}</td>
-          <td>${l.dps ? l.dps.toFixed(1)+'m' : '—'}</td>
-          <td>${l.swolf || '—'}</td>
-        </tr>`).join('')}</tbody></table>`;
+        <tbody>${s.lengths.map(l => {
+          const lNum  = l.n  ?? l.length_number ?? '—';
+          const lDur  = (l.dur ?? l.duration_s);
+          const lPace = (l.pace100 ?? l.pace_100m);
+          return `<tr>
+            <td>${lNum}</td>
+            <td>${lDur != null ? lDur.toFixed(1)+'s' : '—'}</td>
+            <td>${l.strokes ?? '—'}</td>
+            <td>${lPace ? lPace.toFixed(0)+'s' : '—'}</td>
+            <td>${l.dps ? l.dps.toFixed(1)+'m' : '—'}</td>
+            <td>${l.swolf || '—'}</td>
+          </tr>`;
+        }).join('')}</tbody></table>`;
     } else if (s.windows && s.windows.length > 0) {
       const maxRate = Math.max(...s.windows.map(w => w.rate), 1);
       bodyHtml += `<div class="win-section"><div class="k">Stroke rate per 30s window</div>
@@ -1777,7 +1783,7 @@ $('history-csv').addEventListener('click', () => {
       s.lengths.forEach(l => rows.push([
         s.savedAt, s.swimmer||'', s.heightCm||'',
         s.stroke, s.mode, s.pool_m, s.durationS, s.strokes, s.avgRate||'',
-        l.length_number, l.duration_s, l.strokes, l.pace_100m||'', l.dps||'', l.swolf||'',
+        l.n ?? l.length_number ?? '', l.dur ?? l.duration_s ?? '', l.strokes ?? '', l.pace100 ?? l.pace_100m ?? '', l.dps||'', l.swolf||'',
       ]));
     } else {
       rows.push([s.savedAt, s.swimmer||'', s.heightCm||'',
